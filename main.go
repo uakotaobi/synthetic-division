@@ -22,12 +22,13 @@ func closeTerminalLibrary() {
 }
 
 func main() {
+
 	err := initializeTerminalLibrary()
 	if err != nil {
 		return
 	}
 
-	s := "`5~0Byte array"
+	s := "\t\\"
 	length := colorString.TrueLength(s)
 
 	// Press enter to exit
