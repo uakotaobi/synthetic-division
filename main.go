@@ -29,8 +29,10 @@ func main() {
 	}
 
 	// TODO: Enable bright background colors.
-	message := "`f~7Frogs`7~0 are\v\r     `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c!"
-	colorString.Print(5, 5, message)
+	message := "`0~7F\n\br\n\bo\n\bg\n\bs`7~0\n\b\b\n\n\nare\v\r     `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c\n!"
+	colorString.Print(0, 5, message)
+	x, y := colorString.CursorPosition()
+	colorString.Print(x, y, "Don't you agree?")
 	termbox.Flush()
 
 	// Press enter to exit

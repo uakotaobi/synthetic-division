@@ -41,6 +41,20 @@ var hexDigitToColorTable = map[byte]termbox.Attribute {
 	'f': termbox.ColorWhite | termbox.AttrBold,
 }
 
+type position struct {
+	x, y int
+}
+
+var cursorPosition position = position{0, 0}
+
+// The current cursor position starts at 0, 0 and changes as Print() is
+// called.  You can use this to continue printing "where you were last."
+//
+// Note that the CursorPosition never moves off of the screen, even if Print()
+// runs out of bounds.
+func CursorPosition() (int, int) {
+	return cursorPosition.x, cursorPosition.y
+}
 
 // Prints the given string at the given position on the terminal, then returns
 // a pair consisting of the number of characters printed and an error (nil
@@ -136,13 +150,9 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 				return charactersPrinted, nil
 			}
 		case '\b':
-			// Backspace: Move backward by one character.
+			// Backspace: Move backward by one character.  This
+			// can move us off of the left side, and that's okay.
 			x -= 1
-			if x < 0 {
-				// You backspaced before the beginning
-				// of the line, and that's okay.
-				continue
-			}
 		case '\f':
 			// Form feed: Reset to the top of the page.
 			x = 0
@@ -155,21 +165,15 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 			// column.
 			// Note that this is _not_ what C's newline does.
 			y += 1
-			if y >= height {
-				return charactersPrinted, nil
-			}
 		case '\v':
 			// Vertical tab: For us, that jumps up one line,
 			// making it the opposite of \n.
 			y -= 1
-			if y < 0 {
-				return charactersPrinted, nil
-			}
 		default:
 			// Just print the current character at (x, y).
 			// TODO: I thought enumerating through strings yielded
 			// runes, not bytes...?
-			if x >= 0 {
+			if x >= 0 && x < width && y >= 0 && y < height {
 				termbox.SetCell(x,
 					y,
 					rune(c),
@@ -178,13 +182,17 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 				charactersPrinted += 1
 			}
 			x += 1
-			if x >= width {
-				// Surpassed the right edge.
-				return charactersPrinted, nil
-			}
 		}
 
-
+		// The ASCII control codes can easily move us out of bounds,
+		// but since they can also move us back *in* boudns, we don't
+		// quit when that happens.
+		//
+		// However, the cursorPosition is never allowed to go off-screen.
+		if x >= 0 && x < width && y >= 0 && y < height {
+			cursorPosition.x = x
+			cursorPosition.y = y
+		}
 	}
 
 	return charactersPrinted, nil
