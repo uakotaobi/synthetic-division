@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// TODO: Enable bright background colors.
-	message := "`f~7Frogs`7~0 are `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c!"
+	message := "`f~7Frogs`7~0 are\v\r     `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c!"
 	colorString.Print(5, 5, message)
 	termbox.Flush()
 

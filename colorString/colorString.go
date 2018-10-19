@@ -131,22 +131,42 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 		// process.
 		switch(c) {
 		case '\t':
-			// Jump forward to the next tab stop.
+			// Tab: Jump forward to the next tab stop.
 			x += (8 - (x & 7))
 			if x >= width {
 				// You tabbed past the end of the
 				// line.
-				i = length
-				continue
+				return charactersPrinted, nil
 			}
 		case '\b':
-			// Move backward by one character.
+			// Backspace: Move backward by one character.
 			x -= 1
 			if x < 0 {
 				// You backspaced before the beginning
-				// of the line.
-				i = length
+				// of the line, and that's okay.
 				continue
+			}
+		case '\f':
+			// Form feed: Reset to the top of the page.
+			x = 0
+			y = 0
+		case '\r':
+			// Carriage return: Move backward to the beginning of the line.
+			x = 0
+		case '\n':
+			// Line feed: Advance by one line, but retain the same
+			// column.
+			// Note that this is _not_ what C's newline does.
+			y += 1
+			if y >= height {
+				return charactersPrinted, nil
+			}
+		case '\v':
+			// Vertical tab: For us, that jumps up one line,
+			// making it the opposite of \n.
+			y -= 1
+			if y < 0 {
+				return charactersPrinted, nil
 			}
 		default:
 			// Just print the current character at (x, y).
