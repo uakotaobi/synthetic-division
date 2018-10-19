@@ -7,9 +7,40 @@ import (
 
 var _ = fmt.Printf
 
+var letterToControlCodeTable = map[byte]byte {
+	'b': '\b',
+	'f': '\f',
+	'n': '\n',
+	'r': '\r',
+	't': '\t',
+	'v': '\v',
 }
 
+var hexDigitToColorTable = map[byte]termbox.Attribute {
+	'0': termbox.ColorBlack,
+	'1': termbox.ColorBlue,
+	'2': termbox.ColorGreen,
+	'3': termbox.ColorCyan,
+	'4': termbox.ColorRed,
+	'5': termbox.ColorMagenta,
+	'6': termbox.ColorYellow,
+	'7': termbox.ColorWhite,
+	'8': termbox.ColorBlack | termbox.AttrBold,
+	'9': termbox.ColorBlue | termbox.AttrBold,
+	'A': termbox.ColorGreen | termbox.AttrBold,
+	'a': termbox.ColorGreen | termbox.AttrBold,
+	'B': termbox.ColorCyan | termbox.AttrBold,
+	'b': termbox.ColorCyan | termbox.AttrBold,
+	'C': termbox.ColorRed | termbox.AttrBold,
+	'c': termbox.ColorRed | termbox.AttrBold,
+	'D': termbox.ColorMagenta | termbox.AttrBold,
+	'd': termbox.ColorMagenta | termbox.AttrBold,
+	'E': termbox.ColorYellow | termbox.AttrBold,
+	'e': termbox.ColorYellow | termbox.AttrBold,
+	'F': termbox.ColorWhite | termbox.AttrBold,
+	'f': termbox.ColorWhite | termbox.AttrBold,
 }
+
 
 // Prints the given string at the given position on the terminal, then returns
 // a pair consisting of the number of characters printed and an error (nil
@@ -36,40 +67,6 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 	}
 	if x >= width {
 		return 0, nil
-	}
-
-	letterToControlCodeTable := map[byte]byte {
-		'b': '\b',
-		'f': '\f',
-		'n': '\n',
-		'r': '\r',
-		't': '\t',
-		'v': '\v',
-	}
-
-	hexDigitToColorTable := map[byte]termbox.Attribute{
-		'0': termbox.ColorBlack,
-		'1': termbox.ColorBlue,
-		'2': termbox.ColorGreen,
-		'3': termbox.ColorCyan,
-		'4': termbox.ColorRed,
-		'5': termbox.ColorMagenta,
-		'6': termbox.ColorYellow,
-		'7': termbox.ColorWhite,
-		'8': termbox.ColorBlack | termbox.AttrBold,
-		'9': termbox.ColorBlue | termbox.AttrBold,
-		'A': termbox.ColorGreen | termbox.AttrBold,
-		'a': termbox.ColorGreen | termbox.AttrBold,
-		'B': termbox.ColorCyan | termbox.AttrBold,
-		'b': termbox.ColorCyan | termbox.AttrBold,
-		'C': termbox.ColorRed | termbox.AttrBold,
-		'c': termbox.ColorRed | termbox.AttrBold,
-		'D': termbox.ColorMagenta | termbox.AttrBold,
-		'd': termbox.ColorMagenta | termbox.AttrBold,
-		'E': termbox.ColorYellow | termbox.AttrBold,
-		'e': termbox.ColorYellow | termbox.AttrBold,
-		'F': termbox.ColorWhite | termbox.AttrBold,
-		'f': termbox.ColorWhite | termbox.AttrBold,
 	}
 
 	for i := 0; i < len(s); i++ {
