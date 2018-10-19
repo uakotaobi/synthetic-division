@@ -7,72 +7,8 @@ import (
 
 var _ = fmt.Printf
 
-func trueLength(s string) int {
-	length := 0
-	for i := 0; i < len(s); i++ {
-		// fmt.Printf("%d: '%c' (length == %d)\n", i, s[i], length)
-		if s[i] == '`' || s[i] == '~' {
-			if i == len(s) - 1 {
-
-				// Count the '`' or '~' as a normal character
-				// if it lies at the end of the string.
-				length += 1
-
-			} else if (s[i] == '`' && s[i + 1] == '`') ||
-				  (s[i] == '~' && s[i + 1] == '~') {
-
-				// '``' and '~~' count as normal characters.
-				length += 1
-				i += 1
-
-			} else {
-				// The escape sequence may be valid (like
-				// '`5') or invalid (like '~?'),  but it
-				// doesn't count toward the length.  Skip the
-				// next character.
-				i += 1
-			}
-		} else if s[i] == '\\' {
-			if i == len(s) - 1 {
-
-				// Though it is technically invalid for a
-				// backslash to be at the end of the string,
-				// we also count it as a single ordinary
-				// character for the purposes of this module.
-				length += 1
-
-			} else if s[i + 1] == 'r' || s[i + 1] == 'n' ||
-				s[i + 1] == 't' || s[i + 1] == 'b' ||
-				s[i + 1] == 'v' {
-
-				// We treat these escape sequences as motion
-				// commands and do not display them.
-				i += 1
-			} else {
-
-				// '\\' and other escapes count as a single
-				// character.
-				length += 1
-				i += 1
-			}
-		} else if s[i] == '\b' || s[i] == '\t' || s[i] == '\r' ||
-			s[i] == '\n' || s[i] == '\v' {
-			// The actual ASCII control codes are *also*
-			// interpreted as motion commands and do not
-			// contribute to the true length.  But this time,
-			// there's nothing to skip, either.
-			length += 0
-		} else {
-			// Normal character.
-			length += 1
-		}
-	}
-	return length
 }
 
-// Exports trueLength() for testing.  TODO: Remove this.
-func TrueLength(s string) int {
-	return trueLength(s)
 }
 
 // Prints the given string at the given position on the terminal, then returns
@@ -94,12 +30,11 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 
 	var foreground, background = termbox.ColorWhite, termbox.ColorBlack
 	width, height := termbox.Size()
-	length := trueLength(s)
 
 	if y < 0 || y >= height {
 		return 0, nil
 	}
-	if x + length < 0 || x >= width {
+	if x >= width {
 		return 0, nil
 	}
 
