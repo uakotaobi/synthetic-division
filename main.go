@@ -28,13 +28,14 @@ func main() {
 		return
 	}
 
-	s := "\t\\"
-	length := colorString.TrueLength(s)
+	// TODO: Enable bright background colors.
+	message := "`f~7Frogs`7~0 are `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c!"
+	colorString.Print(5, 5, message)
+	termbox.Flush()
 
 	// Press enter to exit
 	buf := make([]byte, 10)
 	_ = termbox.PollRawEvent(buf)
 
 	closeTerminalLibrary()
-	fmt.Printf("True length of '%v': %d\n", s, length)
 }
