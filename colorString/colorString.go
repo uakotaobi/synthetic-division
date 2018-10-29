@@ -65,7 +65,7 @@ func CursorPosition() (int, int) {
 // rendering the final frame.
 //
 // We interpret certain codes, namely `n and ~n, as foreground and background
-// color switching directives, respectively.  "n" represents a color from 0 to
+// color switching directives, respectively.  "n" here is a color from 0 to
 // 15, represented as a single hexadecimal digit.  To print an actual
 // backquote or tilde, use '``' or '~~', respectively.
 //
@@ -196,4 +196,11 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 	}
 
 	return charactersPrinted, nil
+} // end (func Print)
+
+
+// Prints an arbitrary number of arguments in the same manner as fmt.Printf().
+func Printf(x, y int, format string, args ...interface{}) (charactersPrinted int, err error) {
+	s := fmt.Sprintf(format, args...)
+	return Print(x, y, s)
 }

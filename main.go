@@ -32,7 +32,7 @@ func main() {
 	message := "`0~7F\n\br\n\bo\n\bg\n\bs`7~0\n\b\b\n\n\nare\v\r     `1b`2e`3a`4u`5t`6i`7f`8u`9l`a~c\n!"
 	colorString.Print(0, 5, message)
 	x, y := colorString.CursorPosition()
-	colorString.Print(x, y, "Don't you agree?")
+	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", "`9~0agree")
 	termbox.Flush()
 
 	// Press enter to exit
