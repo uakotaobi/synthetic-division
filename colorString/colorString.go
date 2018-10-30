@@ -126,6 +126,14 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 					// Background color switch.  Skip the
 					// entire sequence.
 					background = hexDigitToColorTable[s[i + 1]]
+
+					// TODO: termBox doesn't support a
+					// blink attribute like ncurses does,
+					// but for some terminals, the blink
+					// attribute is the only way to get
+					// the 8 bright background colors.
+					// You'd think termBox would give us
+					// more control over this.
 					i += 1
 					continue
 				} else {
