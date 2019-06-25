@@ -2,6 +2,11 @@ package colorString
 
 import (
 	"fmt"
+
+	"math"
+
+	"github.com/uakotaobi/synthetic-division/utils"
+
 	"github.com/nsf/termbox-go"
 )
 
@@ -41,11 +46,7 @@ var hexDigitToColorTable = map[byte]termbox.Attribute {
 	'f': termbox.ColorWhite | termbox.AttrBold,
 }
 
-type position struct {
-	x, y int
-}
-
-var cursorPosition position = position{0, 0}
+var cursorPosition utils.Position = utils.Position{0, 0}
 
 // The current cursor position starts at 0, 0 and changes as Print() is
 // called.  You can use this to continue printing "where you were last."
@@ -53,7 +54,7 @@ var cursorPosition position = position{0, 0}
 // Note that the CursorPosition never moves off of the screen, even if Print()
 // runs out of bounds.
 func CursorPosition() (int, int) {
-	return cursorPosition.x, cursorPosition.y
+	return int(math.Round(cursorPosition.X)), int(math.Round(cursorPosition.Y))
 }
 
 // Prints the given string at the given position on the terminal, then returns
@@ -198,8 +199,8 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 		//
 		// However, the cursorPosition is never allowed to go off-screen.
 		if x >= 0 && x < width && y >= 0 && y < height {
-			cursorPosition.x = x
-			cursorPosition.y = y
+			cursorPosition.X = float64(x)
+			cursorPosition.Y = float64(y)
 		}
 	}
 
