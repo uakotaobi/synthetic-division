@@ -11,7 +11,7 @@ import (
 func initializeTerminalLibrary() error {
 	err := termbox.Init()
 	if err != nil {
-		fmt.Printf("Could not initialize termbox-go: %s\n", err)
+		fmt.Printf("Could not initialize termbox-go: %s\n", err.Error())
 		return err
 	}
 	return nil
