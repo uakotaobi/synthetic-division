@@ -16,18 +16,14 @@ import (
 type Animation struct {
 
 	// The frames of the animation.  There needs to be at least one.
-	frames []Frame
-
-	// How long the animation is intended to last.  This can be adjusted
-	// at playback time.
-	durationMilliseconds int
+	Frames []Frame
 
 	// Should the animation repeat when finished?
 	//
 	// Note that setting this causes the currentFrame field to reset from
 	// len(frames) - 1 to 0 at the end of each animation, so only Stop()
 	// can halt the animation entirely.
-	loop bool
+	Loop bool
 
 	// The current frame that we're displaying.  When this is equal to the
 	// len(frames), animation is complete.
@@ -39,15 +35,15 @@ type Animation struct {
 func Concat(firstAnimation, secondAnimation Animation) Animation {
 	runningTimestamp := 0
 	result := Animation{}
-	for _, frame := range firstAnimation.frames {
-		result.frames = append(result.frames, frame)
-		result.frames[len(result.frames) - 1].timestamp = runningTimestamp
-		runningTimestamp += frame.timestamp
+	for _, frame := range firstAnimation.Frames {
+		result.Frames = append(result.Frames, frame)
+		result.Frames[len(result.Frames) - 1].Timestamp = runningTimestamp
+		runningTimestamp += frame.Timestamp
 	}
-	for _, frame := range secondAnimation.frames {
-		result.frames = append(result.frames, frame)
-		result.frames[len(result.frames) - 1].timestamp = runningTimestamp
-		runningTimestamp += frame.timestamp
+	for _, frame := range secondAnimation.Frames {
+		result.Frames = append(result.Frames, frame)
+		result.Frames[len(result.Frames) - 1].Timestamp = runningTimestamp
+		runningTimestamp += frame.Timestamp
 	}
 	return result
 }
@@ -55,7 +51,7 @@ func Concat(firstAnimation, secondAnimation Animation) Animation {
 // Returns true if the animation is complete and false otherwise.
 func (animation Animation) Done() bool {
 	v := <- animation.currentFrame
-	return (v >= len(animation.frames))
+	return (v >= len(animation.Frames))
 }
 
 // Displays an animation after the given delay and at the given playback
@@ -81,30 +77,30 @@ func (animation Animation) PlayWithPositionDelayAndPlaybackSpeed(position utils.
 
 	time.Sleep(time.Duration(delayMilliseconds) * time.Millisecond)
 
-	for index, frame := range(animation.frames) {
+	for index, frame := range(animation.Frames) {
 
 		// If the animation is done, don't play it until it is rewound.
-		if index := <- animation.currentFrame; index >= len(animation.frames) {
+		if index := <- animation.currentFrame; index >= len(animation.Frames) {
 			return
 		}
 
 		animation.currentFrame <- index
 
-		framePosition := frame.position
+		framePosition := frame.Position
 		framePosition.X += position.X
 		framePosition.Y += position.Y
 
 		// Show the current frame.
-		colorString.Print(int(framePosition.Y), int(framePosition.Y), frame.content)
+		colorString.Print(int(framePosition.Y), int(framePosition.Y), frame.Content)
 
-		if index < len(animation.frames) - 1 {
+		if index < len(animation.Frames) - 1 {
 
 			// Sleep between frames.
-			nextFrame := animation.frames[index + 1]
-			nextFrameDelayMilliseconds := float64(nextFrame.timestamp - frame.timestamp) * playbackSpeed
+			nextFrame := animation.Frames[index + 1]
+			nextFrameDelayMilliseconds := float64(nextFrame.Timestamp - frame.Timestamp) * playbackSpeed
 			time.Sleep(time.Duration(nextFrameDelayMilliseconds) * time.Millisecond)
 
-		} else if animation.loop && index == len(animation.frames) - 1 {
+		} else if animation.Loop && index == len(animation.Frames) - 1 {
 
 			// Looping animation: Don't let currentFrames get past
 			// the end.
@@ -117,7 +113,7 @@ func (animation Animation) PlayWithPositionDelayAndPlaybackSpeed(position utils.
 // Stops an animation if it is in progress.  This is the same as skipping past
 // the end.
 func (animation Animation) Stop() {
-	animation.currentFrame <- len(animation.frames)
+	animation.currentFrame <- len(animation.Frames)
 }
 
 // Rewinds an animation to the beginning.
