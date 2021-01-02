@@ -229,43 +229,43 @@ var functions = map[string]function {
 // The scanner converts an incoming string into an (infix-)ordered list of tokens. //
 /////////////////////////////////////////////////////////////////////////////////////
 
-type scanner struct {
+type parser struct {
 	tokens []token
 }
 
 // Converts the given input string into a list of tokens.
-func (s *scanner) scan(inputString string) error {
+func (p *parser) scan(inputString string) error {
 
-	s.tokens = []token{}
+	p.tokens = []token{}
 	i := 0
 	for i < len(inputString) {
 
 		c := inputString[i]
 
 		if unicode.IsSpace(rune(c)) {
-			i = s.scanWhiteSpace(inputString, i)
+			i = scanWhiteSpace(inputString, i)
 		} else {
 			// fmt.Printf("No whitespace at position %v.\n", i)
 			var op string
 			var err error
-			i, op, err = s.scanOperator(inputString, i)
+			i, op, err = scanOperator(inputString, i)
 			if err == nil {
 				// Operator found in stream.
 				var t token
 				t.tokenType = operatorToken
 				t.text = op
 				t.operatorValue = operators[op]
-				s.tokens = append(s.tokens, t)
+				p.tokens = append(p.tokens, t)
 				// fmt.Printf("Found operator at position %v (length = %v)\n", i, len(t.text))
 			} else {
 				// fmt.Printf("No operator at position %v.\n", i)
 
 				var t token
-				i, t, err = s.scanNumberOrSymbol(inputString, i)
+				i, t, err = scanNumberOrSymbol(inputString, i)
 				if err == nil {
 					// Number or symbol found in the
 					// stream.
-					s.tokens = append(s.tokens, t)
+					p.tokens = append(p.tokens, t)
 					// fmt.Printf("Found number or token at position %v (length = %v)\n", i, len(t.text))
 				} else {
 					// fmt.Printf("No number or symbol at position %v.\n", i)
@@ -281,7 +281,7 @@ func (s *scanner) scan(inputString string) error {
 
 // Eats all whitespace starting from the index, and returns a new index that
 // is either past the end of the string or whitespace-free.
-func (s scanner) scanWhiteSpace(inputString string, index int) int {
+func scanWhiteSpace(inputString string, index int) int {
 	result := index
 	for result < len(inputString) && unicode.IsSpace(rune(inputString[result])) {
 		result++
@@ -292,7 +292,7 @@ func (s scanner) scanWhiteSpace(inputString string, index int) int {
 // Attempts to read an operator at the given index.  Upon success, returns the
 // operator string and the position just after it; upon failure, returns an
 // error and the original index.
-func (s scanner) scanOperator(inputString string, index int) (newIndex int, text string, err error) {
+func scanOperator(inputString string, index int) (newIndex int, text string, err error) {
 	for key, _ := range operators {
 		if len(inputString) - index >= len(key) && key == inputString[index:index + len(key)] {
 			return index + len(key), key, nil
@@ -304,7 +304,7 @@ func (s scanner) scanOperator(inputString string, index int) (newIndex int, text
 // Attempts to read a number or symbol token at the given index.  Upon
 // success, returns the corresponding token object and the position just after
 // it; upon failure, returns an error and the original index.
-func (s scanner) scanNumberOrSymbol(inputString string, index int) (newIndex int, t token, err error) {
+func scanNumberOrSymbol(inputString string, index int) (newIndex int, t token, err error) {
 
 	const floatingPointRegexpBasic string = "^[+-]?([0-9]*[.])?[0-9]+"
 	const floatingPointRegexpComplete = "^[+-]?([0-9]+([.][0-9]*)?([eE][+-]?[0-9]+)?|[.][0-9]+([eE][+-]?[0-9]+)?)"
@@ -344,21 +344,151 @@ func (s scanner) scanNumberOrSymbol(inputString string, index int) (newIndex int
 	return index, unused, errors.New("No numeric or symbol token found")
 }
 
-// The parser converts an (infix-)ordered list of tokens into a
-// (postfix-)ordered list of tokens.
+//////////////////////////////////////////////////////////////////
+// The parser converts an (infix-)ordered list of tokens into a //
+// (postfix-)ordered list of tokens.				//
+//////////////////////////////////////////////////////////////////
+
+// This function worked the first time it was run, in case you were wondering.
+func (p *parser) parse() error {
+	outputQueue := []token{}
+	operatorStack := []token{}
+
+	for index, t := range p.tokens {
+
+		switch (t.tokenType) {
+		case numberToken:
+			// Always push numbers to the output queue.
+			outputQueue = append([]token{t}, outputQueue...)
+
+			// As a special bit of finesse, if the next token is a
+			// symbol ("10x") or a function ("10 sin(x)"), we assume implicit
+			// multiplication and enqueue the multiplication
+			// operator automatically.
+			if index < len(p.tokens) - 1 && (p.tokens[index + 1].tokenType == symbolToken || p.tokens[index + 1].tokenType == functionToken) {
+				var t token
+				t.tokenType = operatorToken
+				t.text = "*"
+				t.operatorValue = operators["*"]
+				operatorStack = append(operatorStack, t)
+			}
+		case symbolToken:
+			// Always push numbers to the output queue.
+			outputQueue = append([]token{t}, outputQueue...)
+		case functionToken:
+			// _Functions_ are pushed to the operator stack.
+			operatorStack = append(operatorStack, t)
+		case operatorToken:
+			switch (t.operatorValue.name) {
+			case "LEFT-PAREN":
+				// Push left parentheses onto the operator stack.
+				operatorStack = append(operatorStack, t)
+			case "RIGHT-PAREN":
+				// Pop operators from the operator stack onto
+				// the output queue until the top operator is
+				// a left parenthesis.
+				for {
+					if len(operatorStack) == 0 {
+						// No left parenthesis on the
+						// stack at all.
+						return errors.New("Unmatched right parenthesis")
+					} else if operatorStack[len(operatorStack) - 1].operatorValue.name == "LEFT-PAREN" {
+						break
+					} else {
+						var operatorToken token
+						operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+						outputQueue = append([]token{operatorToken}, outputQueue...)
+					}
+				}
+				// Discard the left parenthesis at the top of
+				// the stack.
+				operatorStack = operatorStack[:len(operatorStack) - 1]
+
+				// If we now see a function token, pop it and
+				// push it onto the output queue.
+				if len(operatorStack) > 0 && operatorStack[len(operatorStack) - 1].tokenType == functionToken {
+					var functionToken token
+					functionToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+					outputQueue = append([]token{functionToken}, outputQueue...)
+				}
+				break
+			default:
+				// Ordinary operators.
+				if (len(operatorStack) > 0 &&
+					operatorStack[len(operatorStack) - 1].tokenType == operatorToken) {
+					// There is an operator at the top of the
+					// operator stack.
+					//
+					// Pop operators from the stack as long as:
+					//
+					// 1a. They have greater precedence than the
+					//     current token, t, or
+					// 1b. They have equal precedence to the
+					//     current token and t is left-associative
+					//     (which does not apply here), AND...
+					// 2.  The operator at the top of the stack is
+					//     not a "(".
+					//
+					// The popped operators go to the output
+					// queue.
+					topOperator := operatorStack[len(operatorStack) - 1]
+					for topOperator.operatorValue.precedence > t.operatorValue.precedence &&
+						topOperator.operatorValue.name != "LEFT-PAREN" {
+						var operatorToken token
+						operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+						outputQueue = append([]token{operatorToken}, outputQueue...)
+						if len(operatorStack) == 0 {
+							break
+						}
+						topOperator = operatorStack[len(operatorStack) - 1]
+					}
+				}
+
+				// Push the new operator onto the operator stack.
+				operatorStack = append(operatorStack, t)
+			}
+		}
+	} // end (while there are still tokens to read)
+
+	// Pop any remaining operators to the output queue.
+	for len(operatorStack) > 0 {
+		var operatorToken token
+		operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+		if operatorToken.operatorValue.name == "LEFT-PAREN" {
+			return errors.New("Unmatched left parenthesis")
+		} else if operatorToken.operatorValue.name == "RIGHT-PAREN" {
+			return errors.New("Unmatched right parenthesis")
+		} else {
+			outputQueue = append([]token{operatorToken}, outputQueue...)
+		}
+	}
+
+	// Reverse the output queue and we're done.
+	for left, right := 0, len(outputQueue) - 1; left < right; left, right = left + 1, right - 1 {
+		outputQueue[left], outputQueue[right] = outputQueue[right], outputQueue[left]
+	}
+	p.tokens = outputQueue
+	return nil
+}
+
 
 // The evaluator converts a (postfix-)ordered list of tokens into a polynomial
 // Equation (if it can.)
 func NewEquation(s string) Equation {
-	var myScanner scanner
+	var myParser parser
 
-	err := myScanner.scan(s)
+	err := myParser.scan(s)
 	if err == nil {
-		for _, t := range myScanner.tokens {
-			fmt.Printf("%v, ", t.String())
+		err = myParser.parse()
+		if err == nil {
+			for _, t := range myParser.tokens {
+				fmt.Printf("%v, ", t.String())
+			}
+			fmt.Printf("\n")
 		}
-		fmt.Printf("\n")
-	} else {
+	}
+
+	if err != nil {
 		fmt.Printf("Error: %v", err.Error())
 	}
 
