@@ -22,7 +22,8 @@ func closeTerminalLibrary() {
 }
 
 func main() {
-	_ = NewEquation("10x^2 + 5y + 2")
+	// _ = NewEquation("10x^2 + 5y + abs 2x")
+	_ = NewEquation("-5x^2 + 1")
 	return
 
 	err := initializeTerminalLibrary()
