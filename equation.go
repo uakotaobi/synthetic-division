@@ -7,148 +7,315 @@ import (
 	"unicode"
 	"errors"
 	"regexp"
+	"sort"
+	"strings"
 )
 
-type Equation struct {
-	Coefficients []float64
-	variable string
+// An expression tree is a sequence of tokens in postfix order.
+
+// A _term_ consists of a numeric coefficient plus any number of variables
+// raised to any number of powers.  We represent the variables and powers with
+// a dictionary, such that the term:
+//
+//   5x²y
+//
+// is represented by Term{5.0, {"x": 2, "y": 1}}.
+//
+// When the dictionary is empty, the Term represents a constant.
+type Term struct {
+	Coefficient float64
+	Variables map[string]int
+	sortedVariables []string  // Cached after being calculated by SortKey().
+	sortKey string            // Cached after being calculated by SortKey().
 }
 
-// Constants that determine how colored equations look.  These same colors are
-// used for consistency throughout the rest of the code.
-const DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor string = "`7", "`3", "`9", "`9", "`8"
+// The degree of a Term is the sum of the powers of its variables.
+func (term Term) Degree() (degree int) {
+	degree = 0
+	if term.Coefficient != 0 {
+		for _, power := range term.Variables {
+			degree += power
+		}
+	}
+	return degree
+}
+
+// A Term can be combined with another Term if and only if they have the same
+// variables raised to the same powers.
+func (term Term) CompatibleWith(other Term) bool {
+	for variable, power := range term.Variables {
+		_, present := other.Variables[variable]
+		if !present || other.Variables[variable] != power {
+			return false
+		}
+	}
+	return true
+}
+
+// Returns a string that allows diverse lists of Terms to be sorted in a
+// preferred order.  The rules are:
+//
+// 1. Constants come last and have the (lexicographically) lowest sort key.
+// 2. Terms of higher Degree() have a higher sort key than Terms of a lower
+//    Degree().
+// 3. Among Terms with the same Degree(), a preponderance of higher
+//    exponents has a higher sort key than a preponderance of lower exponents;
+//    x³y has a higher sort key than 100x²y².
+// 4. When the Degree()s are equal and the exponent values are equal,
+//    alphabetically earlier variables sort before alphabetically later ones;
+//    x³y has a higher sort key than xy³.
+//
+// When all is said and done, sorting the Terms in reverse alphabetical
+// SortKey() order will yield the preferred order for display.
+func (term *Term) SortKey() string {
+
+	if term.sortKey == "" {
+		// Let's take a couple of fictitious Terms:
+		//
+		// 1. 7x(ham²)y³
+		// 2. 3x³(ham²)y
+		//
+		// Both Terms have Degree() 6, so this becomes the prefix for
+		// our sort key.
+		//
+		// Sorting the variables alphabetically and concatenating them
+		// yields the nonsense string "hamxy" for both.  Prepending
+		// the exponents for each, we get:
+		//
+		// 1. 6:2ham1x3y
+		// 2. 6:2ham3x1y
+		//
+		// Since 2. comes after 1. lexicographically, 3x³(ham²)y will
+		// be listed first.  Note that this sort order ignores the
+		// coefficients.
+		//
+		// -----
+		//
+		// To make constants come after all this, we simply give them
+		// a prefix that sorts lower than any digit in ASCII, like
+		// "$".  0-padding takes care of the rest.
+
+		term.sortedVariables = []string{}
+		if len(term.Variables) == 0 {
+			// Degree 0: a constant.
+			term.sortKey = fmt.Sprintf("$%020f", term.Coefficient)
+		} else {
+			sortKeyEntries := []string{}
+			for variable, power := range term.Variables {
+				sortKeyEntries = append(sortKeyEntries, fmt.Sprintf("%d%s", power, variable))
+				term.sortedVariables = append(term.sortedVariables, variable)
+			}
+			sort.Strings(term.sortedVariables)
+			sort.Strings(sortKeyEntries)
+			term.sortKey = fmt.Sprintf("%d:%s", term.Degree(), strings.Join(sortKeyEntries, ""))
+		}
+	}
+	return term.sortKey
+}
+
+// A Polynomial is a list of terms, along with some simple rules for
+// simplifying and combining them.
+type Polynomial struct {
+	Terms []Term
+}
 
 // Converts the equation to a string in the form "3x^4 - 7x - 3".
 //
 // The arguments are used to control the colors of the resulting string.  For
 // instance, to make variables gray, set variableColor to "`8".  You can leave
 // them all empty for a colorless string.
-func (e Equation) toString(defaultColor, coefficientColor, variableColor, exponentColor, operatorColor string) string {
+func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, exponentColor, operatorColor string) string {
 
-	if len(e.Coefficients) == 0 {
-		return "0"
+	if len(poly.Terms) == 0 {
+		return coefficientColor + "0"
 	}
 
-	variableString := fmt.Sprintf("%s%s", variableColor, e.variable)
-	_, err := strconv.ParseFloat(e.variable, 64)
-	if err == nil {
-		// The "variable" is a numeric constant.
-		variableString = fmt.Sprintf("%s(%s%f%s)", operatorColor, variableColor, e.variable, operatorColor)
-
-		_, err := strconv.ParseInt(e.variable, 10, 64)
-		if err == nil {
-			// The "variable" is a numeric integer constant.
-			fmt.Sprintf("%s(%s%d%s)", operatorColor, variableColor, e.variable, operatorColor)
-		}
-	}
-
-	// If we have the coefficients -1, -2, and 0, then I prefer printing
-	// this as "-x^2 - 2x" rather than "-1x^2 + -2x + 0".  The terms array
-	// collects the terms as we wish for them to appear; we handle the
-	// signs later.
+	// Sort the Terms in SortKey() order.
 	//
-	// The keys in the map are exponents (so that terms[1], if it exists,
-	// corresponds to what we should print for the x^1 term, and so on.)
-	terms := map[int]string{}
-	firstTerm := -1
+	// This also precalculates poly.Terms[n].sortedVariables.
+	sortedTerms := make([]Term, len(poly.Terms))
+	copy(sortedTerms, poly.Terms)
+	sort.Slice(sortedTerms, func(i, j int) bool {
+		return sortedTerms[i].SortKey() < sortedTerms[j].SortKey()
+	})
 
-	// Gather the terms.
-	for i := len(e.Coefficients) - 1; i >= 0; i-- {
+	indexOfFirstNonzeroTerm := -1
+	termStrings := map[int]string{} // The keys are indices into sortedTerms; the values are the converted strings themselves.
 
-		if e.Coefficients[i] == 0 {
-			continue
-		}
+	for sortedTermIndex, term := range sortedTerms {
 
-		if i > firstTerm {
-			// This is (currently) the highest term in the result
-			// -- that is, the term with the largest exponent.
-			firstTerm = i
-		}
+		termString := fmt.Sprintf("%s0", coefficientColor)
 
 		// Keep the coefficients positive in the terms array in hopes
 		// that we will be able to use subtraction when we get to
 		// handling the signs.
-		coefficient := math.Abs(e.Coefficients[i])
+		coefficient := math.Abs(term.Coefficient)
 
-		coefficientString := fmt.Sprintf(coefficientColor + "%f", coefficient)
-		if float64(int64(e.Coefficients[i])) == e.Coefficients[i] {
-			// The coefficient round-tripped from float to integer
-			// and back.  It is therefore an integer, and can be
-			// printed more concisely.
-			coefficientString = fmt.Sprintf(coefficientColor + "%d", int(coefficient))
-		}
+		if term.Coefficient != 0 {
 
-		term := ""
+			indexOfFirstNonzeroTerm = sortedTermIndex
+			termString = ""
 
-		if i == 0 {
-			// X^0 is the constant term.
-			term = coefficientString
-		} else {
-			// X^(anything else.)
+			// Print the coefficient as an integer if we can
+			// treat it as such.
+			coefficientString := fmt.Sprintf("%s%f", coefficientColor, coefficient)
+			if coefficient == 1 && len(term.Variables) > 0 {
 
-			exponentString := fmt.Sprintf("%s^%s%d", operatorColor, exponentColor, i)
-			if i == 1 {
-				// "13x" looks better than "13x^1".
-				exponentString = ""
-			}
-
-			if coefficient == 1 {
 				// "-x^2" looks better than "-1x^2".
 				coefficientString = ""
+
+			} else if float64(int64(term.Coefficient)) == term.Coefficient {
+
+				// The coefficient round-tripped from float to integer
+				// and back.  It is therefore an integer, and can be
+				// printed more concisely.
+				coefficientString = fmt.Sprintf("%s%d", coefficientColor, int(coefficient))
 			}
+			termString += coefficientString
 
-			term = fmt.Sprintf("%s%s%s",
-				coefficientString,
-				variableString,
-				exponentString)
+			// fmt.Printf("Term %d: termString is currently (\"%s\")\n", sortedTermIndex, termString)
 
+			// A variable (and its exponent) needs to be surrounded with
+			// parentheses if:
+			//
+			// 1. The term's name is more than one character long, or:
+			// 2. The "variable" is actually a numeric constant; or:
+			// 3. There is more than one Term, and the current Term is
+			//    odd-numbered (counting starts at 0 with the leftmost
+			//    Term.)
+			for variableIndex, v := range term.sortedVariables {
+				exponent := term.Variables[v]
+				// fmt.Printf("  Term %d, variable #%d (\"%s\"): exponent = %d\n", sortedTermIndex, variableIndex, v, exponent)
+				exponentString := fmt.Sprintf("%s^%s%d", operatorColor, exponentColor, exponent)
+				if exponent == 1 {
+					// "z" looks better than "z^1".
+					exponentString = ""
+				}
 
+				_, err := strconv.ParseFloat(v, 64)
+
+				if len(v) > 1 || (len(term.sortedVariables) > 1 && variableIndex % 2 == 1) || err == nil {
+					// Needs parentheses.
+					termString += fmt.Sprintf("%s(%s%s%s%s)",
+						operatorColor,
+						variableColor,
+						v,
+						exponentString,
+						operatorColor)
+				} else {
+					// Doesn't need parentheses.
+					termString += fmt.Sprintf("%s%s%s",
+						variableColor,
+						v,
+						exponentString)
+				}
+			}
+			termStrings[sortedTermIndex] = termString
 		}
-		terms[i] = term
+	}
+
+	// If all the terms have coefficients of 0, the Polynomial is the zero polynomial.
+	if len(termStrings) == 0 {
+		return fmt.Sprintf("%s0", coefficientColor)
 	}
 
 	// Determine the signs.
-	for i, _ := range terms {
-		if i == firstTerm {
-			if e.Coefficients[i] < 0 {
+	for i, _ := range termStrings {
+		if i == indexOfFirstNonzeroTerm {
+			if sortedTerms[i].Coefficient < 0 {
 				// Only one term (or we're dealing with the first
 				// term), so the minus sign goes right before the
 				// coefficient.
-				terms[i] = operatorColor + "-" + terms[i]
+				termStrings[i] = operatorColor + "-" + termStrings[i]
 			} else {
 				// Traditionally, we don't add a leading "+"
 				// for positive numbers.
 			}
 		} else {
-			// Prepend a + or - operator as appropriate.
-			if e.Coefficients[i] < 0 {
-				terms[i] = fmt.Sprintf("%s %s-%s %s", defaultColor, operatorColor, defaultColor, terms[i])
+			// Prepend a + or - operator as appropriate.  This is
+			// also where we add the spaces that separate terms.
+			if sortedTerms[i].Coefficient < 0 {
+				termStrings[i] = fmt.Sprintf("%s %s-%s %s", defaultColor, operatorColor, defaultColor, termStrings[i])
 			} else {
-				terms[i] = fmt.Sprintf("%s %s+%s %s", defaultColor, operatorColor, defaultColor, terms[i])
+				termStrings[i] = fmt.Sprintf("%s %s+%s %s", defaultColor, operatorColor, defaultColor, termStrings[i])
 			}
 		}
 	}
 
-	// Emit the final result.
+	// Emit the final result in SortedKey order.
 	result := ""
-	for i := 0; i < len(e.Coefficients); i++ {
-		term, exists := terms[i]
+	for i, _ := range sortedTerms {
+		termString, exists := termStrings[i]
 		if exists {
-			result = term + result
+			result = termString + result
 		}
 	}
 	return result
 }
 
-// Converts an equation to a plain string.
-func (e Equation) String() string {
-	return e.toString("", "", "", "", "")
+// Converts a polynomial to a plain string.
+func (p Polynomial) String() string {
+	return p.toString("", "", "", "", "")
 }
 
-// Converts an equation to a colorful string that can be interpreted by colorPrint().
-func (e Equation) ColorString() string {
-	return e.toString(DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor)
+// Converts a polynomial to a colorful string that can be interpreted by colorPrint().
+func (p Polynomial) ColorString() string {
+	return p.toString(DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor)
 }
+
+// Makes a new Polynomial of a single variable.
+func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
+	var result Polynomial
+
+	for i := len(coefficients) - 1; i >= 0; i-- {
+		variables := map[string]int{}
+		if i > 0 {
+			// If variable == "x" and i == 2, then the dictionary
+			// {"x": 2} represents the term "x^2".  Meanwhile, the
+			// dictionary {}, reserved for the final term,
+			// represents 1.
+			variables[v] = i
+		}
+		result.Terms = append(result.Terms, Term{coefficients[i], variables, []string{}, ""})
+	}
+
+	return result
+}
+
+// These notes below have nothing to do with Polynomial objects themselves!
+// They are all _factorings_ of the Polynomial -- recombinations of Terms in
+// order to present a Polynomial in a different way.  The coefficients in
+// these cases are _themselves_ (basic) Polynomials.  What's more, these
+// expressions can be multiplied out and simplified into a basic Polynomial.
+//
+// What's being described here are _Polynomial Expressions_, or at least one
+// form of them.  Factoring a Polynomial leads to an expression, and has
+// nothing to do with synthetic division.
+//
+// // A true polynomial combines any number of univariate polynomials, each using
+// // a different variable (these are the keys in the map.)
+// //
+// // The polynomial can be treated as a univariate polynomial where the other
+// // terms are all considered constant with respect to that variable.  For
+// // instance, 5xy - zx + y can be treated as
+// //
+// //     (5y - z)x¹ + (y)x⁰
+// //
+// // with respect to x, or as
+// //
+// //     (5x + 1)y¹ + (-zx)y⁰
+// //
+// // with respect to y, or as
+// //
+// //     (-x)z¹ + (5xy + y)z⁰
+// //
+// // with respect to z.  So each coefficient of a polynomial with respect to
+// // some variable is really itself a polynomial of lower degree which lacks
+// // that variable.
+
+// Constants that determine how colored equations look.  These same colors are
+// used for consistency throughout the rest of the code.
+const DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor string = "`7", "`3", "`9", "`9", "`8"
 
 ////////////////////////////////
 // Shunting-Yard Parser code  //
@@ -542,7 +709,7 @@ func (p *parser) parse() error {
 
 // The evaluator converts a (postfix-)ordered list of tokens into a polynomial
 // Equation (if it can.)
-func NewEquation(s string) Equation {
+func NewPOlynomial(s string) Polynomial {
 	var myParser parser
 
 	err := myParser.scan(s)
@@ -560,6 +727,6 @@ func NewEquation(s string) Equation {
 		fmt.Printf("Error: %v\n", err.Error())
 	}
 
-	var unused Equation
+	var unused Polynomial
 	return unused
 }

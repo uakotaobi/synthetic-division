@@ -23,8 +23,14 @@ func closeTerminalLibrary() {
 
 func main() {
 	// _ = NewEquation("10x^2 + 5y + abs 2x")
-	_ = NewEquation("-5x^2 + 1")
-	return
+	//_ = NewEquation("-5x^2 + 1")
+	//// p2 := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
+	//// for i, _ := range p2.Terms {
+	////	p2.Terms[i].SortKey()
+	////	fmt.Printf("%d: sortKey=%v\n", i, p2.Terms[i].sortKey)
+	//// }
+	//// fmt.Printf("%v\n", p2)
+	//// return
 
 	err := initializeTerminalLibrary()
 	if err != nil {
@@ -44,8 +50,9 @@ func main() {
 	var v interface{} = "`9~0agree"
 	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", v)
 
-	e := Equation{[]float64{-1, 3, 1.0, 0, 0, -1}, "x"}
-	colorString.Printf(x, y, "\r\n\n[" + e.ColorString() + "]")
+	p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
+	p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
+	colorString.Printf(x, y, "\r\n\n[" + p.ColorString() + "]")
 
 	termbox.Flush()
 
