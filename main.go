@@ -50,8 +50,12 @@ func main() {
 	var v interface{} = "`9~0agree"
 	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", v)
 
-	p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
-	p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
+	// p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
+	p := NewUnivariatePolynomial([]float64{5, 0, 0}, "x")
+	q := NewUnivariatePolynomial([]float64{-5, 0, 0, 1}, "x")
+	p.Add(q)
+	// p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
+	// p.MultiplyByConstant(2)
 	colorString.Printf(x, y, "\r\n\n[" + p.ColorString() + "]")
 
 	termbox.Flush()

@@ -40,12 +40,22 @@ func (term Term) Degree() (degree int) {
 	return degree
 }
 
-// A Term can be combined with another Term if and only if they have the same
-// variables raised to the same powers.
+// A Term can be combined with another Term via addition or subtraction if and
+// only if they have the same variables raised to the same powers.
 func (term Term) CompatibleWith(other Term) bool {
-	for variable, power := range term.Variables {
-		_, present := other.Variables[variable]
-		if !present || other.Variables[variable] != power {
+	if len(term.Variables) == 0 && len(other.Variables) == 0 {
+		// Constants (no attached variables.)
+		return true
+	}
+
+	if len(term.Variables) != len(other.Variables) {
+		// Different numbers of variables in each term.
+		return false
+	}
+
+	for v, power := range term.Variables {
+		_, present := other.Variables[v]
+		if !present || other.Variables[v] != power {
 			return false
 		}
 	}
@@ -118,6 +128,53 @@ func (term *Term) SortKey() string {
 type Polynomial struct {
 	Terms []Term
 }
+
+// Multiplies the polynomial by the given floating-point number.
+func (poly *Polynomial) MultiplyByConstant(f float64) {
+	for i, _ := range poly.Terms {
+		poly.Terms[i].Coefficient *= f
+	}
+}
+
+// Adds the given polynomial to this one.
+func (poly *Polynomial) Add(p Polynomial) {
+
+	// Graft their terms and ours together.
+	terms := []Term{}
+	index := 0
+	for _, term := range poly.Terms {
+		terms = append(terms, term)
+		index++
+	}
+
+	// Merge compatible terms.
+	// fmt.Printf("- Initial set is %v\n", terms)
+	for i := 0; i < len(p.Terms); i++ {
+		newTerm := p.Terms[i]
+		merged := false
+		for j := 0; j < len(terms); j++ {
+			if newTerm.CompatibleWith(terms[j]) {
+				// Add newTerm to the current term.
+				// fmt.Printf("- Added %v to %v, yielding", newTerm, terms[j])
+				terms[j].Coefficient += newTerm.Coefficient
+				merged = true
+				// fmt.Printf("%v\n", terms[j])
+				break
+			}
+		}
+
+		if !merged {
+			// newTerm is not compatible with any existing term.
+			// Add it as a new term in its own right.
+			// fmt.Printf("- Added %v directly\n", newTerm)
+			terms = append(terms, newTerm)
+		}
+	}
+
+	poly.Terms = terms
+	// fmt.Printf("- Final sum is %v\n", poly.Terms)
+}
+
 
 // Converts the equation to a string in the form "3x^4 - 7x - 3".
 //
@@ -266,14 +323,14 @@ func (p Polynomial) ColorString() string {
 func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 	var result Polynomial
 
-	for i := len(coefficients) - 1; i >= 0; i-- {
+	for i := 0; i < len(coefficients); i++ {
 		variables := map[string]int{}
-		if i > 0 {
+		if i < len(coefficients) - 1 {
 			// If variable == "x" and i == 2, then the dictionary
 			// {"x": 2} represents the term "x^2".  Meanwhile, the
 			// dictionary {}, reserved for the final term,
-			// represents 1.
-			variables[v] = i
+			// represents x^0.
+			variables[v] = len(coefficients) - 1 - i
 		}
 		result.Terms = append(result.Terms, Term{coefficients[i], variables, []string{}, ""})
 	}
@@ -314,7 +371,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 
 // Constants that determine how colored equations look.  These same colors are
 // used for consistency throughout the rest of the code.
-const DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor string = "`7", "`3", "`9", "`9", "`8"
+const DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor string = "`7", "`3", "`9", "`9", "`7"
 
 ////////////////////////////////
 // Shunting-Yard Parser code  //
