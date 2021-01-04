@@ -123,6 +123,16 @@ func (term *Term) SortKey() string {
 	return term.sortKey
 }
 
+// Converts a Term to a plain string.
+func (t Term) String() string {
+	return NewPolynomialFromTerm(t).toString("", "", "", "", "")
+}
+
+// Converts a Term to a colorful string that can be interpreted by colorPrint().
+func (t Term) ColorString() string {
+	return NewPolynomialFromTerm(t).toString(DefaultColor, CoefficientColor, VariableColor, ExponentColor, OperatorColor)
+}
+
 // A Polynomial is a list of terms, along with some simple rules for
 // simplifying and combining them.
 type Polynomial struct {
@@ -770,6 +780,13 @@ func (p *parser) parse() error {
 	return nil
 }
 
+// Since a Polynomial is, by definition, a list of Terms in any order, making
+// a Polynomial from a single Term is trivial.
+func NewPolynomialFromTerm(t Term) Polynomial {
+	var p Polynomial
+	p.Terms = []Term{t}
+	return p
+}
 
 // The evaluator converts a (postfix-)ordered list of tokens into a polynomial
 // Equation (if it can.)
