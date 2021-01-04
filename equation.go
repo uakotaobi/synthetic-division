@@ -171,12 +171,18 @@ func (poly *Polynomial) Add(p Polynomial) {
 		}
 	}
 
+	// As a convenience, adding automatically sorts the Terms so the one
+	// with the highest power comes first.
+	sort.Slice(terms, func(i, j int) bool {
+		return terms[i].SortKey() > terms[j].SortKey()
+	})
+
 	poly.Terms = terms
 	// fmt.Printf("- Final sum is %v\n", poly.Terms)
 }
 
 
-// Converts the equation to a string in the form "3x^4 - 7x - 3".
+// Converts the polynomial to a string in the form "3x^4 - 7x - 3".
 //
 // The arguments are used to control the colors of the resulting string.  For
 // instance, to make variables gray, set variableColor to "`8".  You can leave
@@ -187,13 +193,13 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 		return coefficientColor + "0"
 	}
 
-	// Sort the Terms in SortKey() order.
+	// Sort the Terms in SortKey() order (reverse lexicographical order).
 	//
 	// This also precalculates poly.Terms[n].sortedVariables.
 	sortedTerms := make([]Term, len(poly.Terms))
 	copy(sortedTerms, poly.Terms)
 	sort.Slice(sortedTerms, func(i, j int) bool {
-		return sortedTerms[i].SortKey() < sortedTerms[j].SortKey()
+		return sortedTerms[i].SortKey() > sortedTerms[j].SortKey()
 	})
 
 	indexOfFirstNonzeroTerm := -1
@@ -210,7 +216,9 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 
 		if term.Coefficient != 0 {
 
-			indexOfFirstNonzeroTerm = sortedTermIndex
+			if indexOfFirstNonzeroTerm < 0 {
+				indexOfFirstNonzeroTerm = sortedTermIndex
+			}
 			termString = ""
 
 			// Print the coefficient as an integer if we can
@@ -303,7 +311,7 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 	for i, _ := range sortedTerms {
 		termString, exists := termStrings[i]
 		if exists {
-			result = termString + result
+			result += termString
 		}
 	}
 	return result
@@ -765,7 +773,7 @@ func (p *parser) parse() error {
 
 // The evaluator converts a (postfix-)ordered list of tokens into a polynomial
 // Equation (if it can.)
-func NewPOlynomial(s string) Polynomial {
+func NewPolynomial(s string) Polynomial {
 	var myParser parser
 
 	err := myParser.scan(s)
