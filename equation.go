@@ -26,7 +26,7 @@ type Term struct {
 	Coefficient float64
 	Variables map[string]int
 	sortedVariables []string  // Cached after being calculated by SortKey().
-	sortKey string            // Cached after being calculated by SortKey().
+	sortKey string            // Also cached after being calculated by SortKey().
 }
 
 // The degree of a Term is the sum of the powers of its variables.
@@ -56,14 +56,10 @@ func (term Term) CompatibleWith(other Term) bool {
 // preferred order.  The rules are:
 //
 // 1. Constants come last and have the (lexicographically) lowest sort key.
-// 2. Terms of higher Degree() have a higher sort key than Terms of a lower
-//    Degree().
-// 3. Among Terms with the same Degree(), a preponderance of higher
-//    exponents has a higher sort key than a preponderance of lower exponents;
-//    x³y has a higher sort key than 100x²y².
-// 4. When the Degree()s are equal and the exponent values are equal,
-//    alphabetically earlier variables sort before alphabetically later ones;
-//    x³y has a higher sort key than xy³.
+// 2. Terms of higher maximum exponent have a higher sort key.
+// 3. Among Terms with the same maximum exponent, alphabetically earlier
+//    variables sort before alphabetically later ones; x³y has a higher sort
+//    key than xy³.
 //
 // When all is said and done, sorting the Terms in reverse alphabetical
 // SortKey() order will yield the preferred order for display.
@@ -101,13 +97,17 @@ func (term *Term) SortKey() string {
 			term.sortKey = fmt.Sprintf("$%020f", term.Coefficient)
 		} else {
 			sortKeyEntries := []string{}
+			maxExponent := -1
 			for variable, power := range term.Variables {
 				sortKeyEntries = append(sortKeyEntries, fmt.Sprintf("%d%s", power, variable))
 				term.sortedVariables = append(term.sortedVariables, variable)
+				if power > maxExponent {
+					maxExponent = power
+				}
 			}
 			sort.Strings(term.sortedVariables)
 			sort.Strings(sortKeyEntries)
-			term.sortKey = fmt.Sprintf("%d:%s", term.Degree(), strings.Join(sortKeyEntries, ""))
+			term.sortKey = fmt.Sprintf("%d:%s", maxExponent, strings.Join(sortKeyEntries, ""))
 		}
 	}
 	return term.sortKey
@@ -181,8 +181,7 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 			// 1. The term's name is more than one character long, or:
 			// 2. The "variable" is actually a numeric constant; or:
 			// 3. There is more than one Term, and the current Term is
-			//    odd-numbered (counting starts at 0 with the leftmost
-			//    Term.)
+			//    not the rightmost one.
 			for variableIndex, v := range term.sortedVariables {
 				exponent := term.Variables[v]
 				// fmt.Printf("  Term %d, variable #%d (\"%s\"): exponent = %d\n", sortedTermIndex, variableIndex, v, exponent)
@@ -194,7 +193,7 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 
 				_, err := strconv.ParseFloat(v, 64)
 
-				if len(v) > 1 || (len(term.sortedVariables) > 1 && variableIndex % 2 == 1) || err == nil {
+				if len(v) > 1 || err == nil || (len(term.sortedVariables) > 1 && variableIndex < len(term.sortedVariables) - 1) {
 					// Needs parentheses.
 					termString += fmt.Sprintf("%s(%s%s%s%s)",
 						operatorColor,
