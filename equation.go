@@ -29,9 +29,14 @@ type Term struct {
 	sortKey string            // Also cached after being calculated by SortKey().
 }
 
+// Go doesn't have constructors, so this is the closest we get to that.
+func NewTerm() Term {
+	return Term{0, map[string]int{}, []string{}, ""}
+}
+
 // The degree of a Term is the sum of the powers of its variables.
-func (term Term) Degree() (degree int) {
-	degree = 0
+func (term Term) Degree() int {
+	degree := 0
 	if term.Coefficient != 0 {
 		for _, power := range term.Variables {
 			degree += power
@@ -117,7 +122,7 @@ func (term *Term) SortKey() string {
 			}
 			sort.Strings(term.sortedVariables)
 			sort.Strings(sortKeyEntries)
-			term.sortKey = fmt.Sprintf("%d:%s", maxExponent, strings.Join(sortKeyEntries, ""))
+			term.sortKey = fmt.Sprintf("%020d:%s", maxExponent * term.Degree(), strings.Join(sortKeyEntries, ""))
 		}
 	}
 	return term.sortKey
@@ -140,14 +145,15 @@ type Polynomial struct {
 }
 
 // Multiplies the polynomial by the given floating-point number.
-func (poly *Polynomial) MultiplyByConstant(f float64) {
+func (poly *Polynomial) MultiplyByConstant(f float64) *Polynomial {
 	for i, _ := range poly.Terms {
 		poly.Terms[i].Coefficient *= f
 	}
+	return poly
 }
 
 // Adds the given polynomial to this one.
-func (poly *Polynomial) Add(p Polynomial) {
+func (poly *Polynomial) Add(p Polynomial) *Polynomial {
 
 	// Graft their terms and ours together.
 	terms := []Term{}
@@ -161,6 +167,11 @@ func (poly *Polynomial) Add(p Polynomial) {
 	// fmt.Printf("- Initial set is %v\n", terms)
 	for i := 0; i < len(p.Terms); i++ {
 		newTerm := p.Terms[i]
+		if newTerm.Coefficient == 0 {
+			// Optimize away terms that have no value.
+			continue
+		}
+
 		merged := false
 		for j := 0; j < len(terms); j++ {
 			if newTerm.CompatibleWith(terms[j]) {
@@ -189,8 +200,36 @@ func (poly *Polynomial) Add(p Polynomial) {
 
 	poly.Terms = terms
 	// fmt.Printf("- Final sum is %v\n", poly.Terms)
+	return poly
 }
 
+
+// Multiplies this polynomial by the given one.
+func (poly *Polynomial) Multiply(p Polynomial) *Polynomial {
+	result := NewZeroPolynomial()
+
+	for _, term1 := range poly.Terms {
+		for _, term2 := range p.Terms {
+			product := NewTerm()
+			product.Coefficient = term1.Coefficient * term2.Coefficient
+			for v, power1 := range term1.Variables {
+				product.Variables[v] = power1
+			}
+			for v, power2 := range term2.Variables {
+				power1, present := term1.Variables[v]
+				if present {
+					// X^n + X^m = X^(n + m).
+					product.Variables[v] = power2 + power1
+				} else {
+					product.Variables[v] = power2
+				}
+			}
+			result.Add(NewPolynomialFromTerm(product))
+		}
+	}
+	poly.Terms = result.Terms
+	return poly
+}
 
 // Converts the polynomial to a string in the form "3x^4 - 7x - 3".
 //
@@ -778,6 +817,12 @@ func (p *parser) parse() error {
 	}
 	p.tokens = outputQueue
 	return nil
+}
+
+// Returns an empty Polynomial.
+func NewZeroPolynomial() Polynomial {
+	var p Polynomial = Polynomial{[]Term{}}
+	return p
 }
 
 // Since a Polynomial is, by definition, a list of Terms in any order, making
