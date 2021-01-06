@@ -144,6 +144,17 @@ type Polynomial struct {
 	Terms []Term
 }
 
+// The degree of a Polynomial is the maximum degree of its Terms.
+func (poly Polynomial) Degree() int {
+	degree := 0
+	for _, term := range poly.Terms {
+		if term.Degree() > degree {
+			degree = term.Degree()
+		}
+	}
+	return degree
+}
+
 // Multiplies the polynomial by the given floating-point number.
 func (poly *Polynomial) MultiplyByConstant(f float64) *Polynomial {
 	for i, _ := range poly.Terms {
@@ -224,10 +235,16 @@ func (poly *Polynomial) Multiply(p Polynomial) *Polynomial {
 					product.Variables[v] = power2
 				}
 			}
+
+			// Calculate product.sortedVariables and
+			// product.sortKey.
+			product.SortKey()
+
 			result.Add(NewPolynomialFromTerm(product))
 		}
 	}
 	poly.Terms = result.Terms
+
 	return poly
 }
 
@@ -287,7 +304,7 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 			}
 			termString += coefficientString
 
-			// fmt.Printf("Term %d: termString is currently (\"%s\")\n", sortedTermIndex, termString)
+			// fmt.Printf("Term %d: termString is currently (\"%s\")(sortKey=%v, sortedVariables=%v)\n", sortedTermIndex, termString, term.sortKey, term.sortedVariables)
 
 			// A variable (and its exponent) needs to be surrounded with
 			// parentheses if:
@@ -381,6 +398,9 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 	var result Polynomial
 
 	for i := 0; i < len(coefficients); i++ {
+		if coefficients[i] == 0 {
+			continue
+		}
 		variables := map[string]int{}
 		if i < len(coefficients) - 1 {
 			// If variable == "x" and i == 2, then the dictionary
@@ -389,7 +409,14 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 			// represents x^0.
 			variables[v] = len(coefficients) - 1 - i
 		}
-		result.Terms = append(result.Terms, Term{coefficients[i], variables, []string{}, ""})
+
+		// Start each new Term with a precalcualted sortKey.
+		term := NewTerm()
+		term.Coefficient = coefficients[i]
+		term.Variables = variables
+		term.SortKey()
+
+		result.Terms = append(result.Terms, term)
 	}
 
 	return result
@@ -447,6 +474,7 @@ const (
 	symbolToken
 	functionToken
 	numberToken
+	polynomialToken  // A special token type that non-operator tokens are replaced with during evaluation (See NewPolynomial().)
 )
 
 type token struct {
@@ -456,6 +484,7 @@ type token struct {
 	operatorValue operator
 	numericValue float64
 	functionValue function
+	polynomialValue Polynomial
 }
 
 // Prints a token.
@@ -469,6 +498,8 @@ func (t token) String() string {
 		return fmt.Sprintf("NUMBER(%v)", t.numericValue)
 	case functionToken:
 		return fmt.Sprintf("FUNCTION(\"%v\")", t.text)
+	case polynomialToken:
+		return fmt.Sprintf("POLYNOMIAL(%v)", t.polynomialValue)
 	default:
 		return fmt.Sprintf("UNRECOGNIZED-TOKEN-TYPE(\"%v\")", t.text)
 	}
@@ -492,31 +523,33 @@ type operator struct {
 	type_ operatorType
 	precedence int
 	associativity int // Negative for left, positive for right, 0 for undetermined
-	function int      // TODO: This should be the operator's evaluation routine.
 }
 
 // Note that all unary operators must be right-associative and have higher
 // precedence than the binary operators in order to fool Shunting Yard into
 // handling them.
 var operators = map[string]operator {
-	"(":   operator{"LEFT-PAREN",  other, 200, noAssociativity,    0},
-	")":   operator{"RIGHT-PAREN", other, 200, noAssociativity,    0},
-	"!!+": operator{"UNARY +",     unary, 100, rightAssociativity, 0}, // Deduced automatically during scanning
-	"!!-": operator{"UNARY -",     unary, 100, rightAssociativity, 0}, // Deduced automatically during scanning
-	"^":   operator{"EXPONENT",    binary, 90, rightAssociativity, 0},
-	"*":   operator{"MULTIPLY",    binary, 80, leftAssociativity,  0},
-	"/":   operator{"DIVIDE",      binary, 80, leftAssociativity,  0},
-	"+":   operator{"ADD",         binary, 60, leftAssociativity,  0},
-	"-":   operator{"SUBTRACT",    binary, 60, leftAssociativity,  0},
+	"(":   operator{"LEFT-PAREN",  other, 200, noAssociativity},
+	")":   operator{"RIGHT-PAREN", other, 200, noAssociativity},
+	"!!+": operator{"UNARY +",     unary, 100, rightAssociativity}, // Deduced automatically during scanning
+	"!!-": operator{"UNARY -",     unary, 100, rightAssociativity}, // Deduced automatically during scanning
+	"^":   operator{"EXPONENT",    binary, 90, rightAssociativity},
+	"*":   operator{"MULTIPLY",    binary, 80, leftAssociativity},
+	"/":   operator{"DIVIDE",      binary, 80, leftAssociativity},
+	"+":   operator{"ADD",         binary, 60, leftAssociativity},
+	"-":   operator{"SUBTRACT",    binary, 60, leftAssociativity},
 }
 
+// These functions can only take one argument right now (at least until I
+// learn how to modify the Shunting Yard Algorithm to handle more function
+// arguments.)
 type function struct {
 	argumentCount int
-	function int // TODO: This should be the function's evaluation routine.
+	function func(float64) float64 // The function's evaluation routine.
 }
 
 var functions = map[string]function {
-	"abs": function{1, 0},
+	"abs": function{1, math.Abs},
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -835,24 +868,375 @@ func NewPolynomialFromTerm(t Term) Polynomial {
 
 // The evaluator converts a (postfix-)ordered list of tokens into a polynomial
 // Equation (if it can.)
-func NewPolynomial(s string) Polynomial {
+func NewPolynomial(s string) (Polynomial, error) {
 	var myParser parser
 
 	err := myParser.scan(s)
-	if err == nil {
-		err = myParser.parse()
-		if err == nil {
-			for _, t := range myParser.tokens {
-				fmt.Printf("%v, ", t.String())
-			}
-			fmt.Printf("\n")
-		}
-	}
-
 	if err != nil {
-		fmt.Printf("Error: %v\n", err.Error())
+		// Scanning error *(such as an illegal character.)
+		return NewZeroPolynomial(), err
 	}
 
-	var unused Polynomial
-	return unused
+	err = myParser.parse()
+	if err != nil {
+		// Parsing error (such as imbalanced parentheses.)
+		return NewZeroPolynomial(), err
+	}
+
+	// This error is produced if the token stack has two few elements
+	// when we're trying to evaluate an operator or function.
+	underflowError := func(topToken token, operandStack []token) error {
+		message := ""
+		switch {
+		case topToken.tokenType == operatorToken && topToken.operatorValue.type_ == unary:
+			message = fmt.Sprintf("Stack underflow: expected 1 operand for unary '%v' operator (%v); got %v",
+				topToken.text,
+				topToken.operatorValue.name,
+				len(operandStack))
+		case topToken.tokenType == operatorToken && topToken.operatorValue.type_ == binary:
+			message = fmt.Sprintf("Stack underflow: expected 2 operands for binary '%v' operator (%v); got %v",
+				topToken.text,
+				topToken.operatorValue.name,
+				len(operandStack))
+		case topToken.tokenType == functionToken:
+			message = fmt.Sprintf("Stack underflow: expected 1 operand for function '%v'; got %v",
+				topToken.text,
+				len(operandStack))
+		default:
+			message = fmt.Sprintf("Internal error: underflowError() invoked with invalid arguments (topToken == %v)",
+				topToken)
+		}
+		return errors.New(message)
+	}
+
+	// Returns nil if all operands are valid for the given operator, and
+	// an error otherwise.
+	//
+	// We always produce an error when the operands are non-algebraic (that
+	// is, not numbers, symbols, or polynomials.)
+	validateOperands := func(topToken token, operands []token) error {
+		message := ""
+
+		for i, operand := range operands {
+			switch {
+			case operand.tokenType == numberToken:
+				// Numeric constants are always valid.
+				continue
+			case operand.tokenType == symbolToken: fallthrough;
+			case operand.tokenType == polynomialToken:
+				// The only things we can't do yet with symbols and
+				// polynomials with a degree greater than 0
+				// are:
+				//
+				// 1. Divide by them (like "1/x"); or
+				// 2. Use them as exponents (like "2^x"); or
+				// 3. Use them to evaluate mathematical
+				//    functions (like "abs(x)")
+				//
+				// ...at least, not if we want the resulting
+				// expression to be a polynomial.
+				if (i == 0 && topToken.tokenType == functionToken) ||
+					(i == 1 && (topToken.operatorValue.name == "DIVIDE" || topToken.operatorValue.name == "EXPONENT")) {
+					operandIsNumericConstant := false
+
+					if operand.tokenType == symbolToken {
+						// 'Symbols' like "10" are treated like
+						// the numbers they are!
+						_, err = strconv.ParseFloat(operand.text, 64)
+						operandIsNumericConstant = (err == nil)
+					}
+
+					if (operand.tokenType == polynomialToken && operand.polynomialValue.Degree() > 0) ||
+						(operand.tokenType == symbolToken && !operandIsNumericConstant) {
+						message = fmt.Sprintf("Invalid operand for '%v': '%v' is not a constant, and using non-constants as exponents, divisors, or function arguments is not currently supported",
+							topToken.text,
+							operand.text)
+					} else {
+						// This operand is a constant,
+						// and using it is okay.
+						continue
+					}
+				} else {
+					// Using operators in other
+					// circumstances is okay.
+					continue
+				}
+			case operand.tokenType == operatorToken:
+				message = fmt.Sprintf("Invalid operand for '%v' operator (%v): Expected number, symbol, or polynomial on stack, but got %v instead",
+					topToken.text,
+					topToken.operatorValue.name,
+					operand.operatorValue.name)
+			case operand.tokenType == functionToken:
+				// Any function that could not be evaluated as a
+				// polynomial remains on the stack, producing this
+				// error when it is encountered by another operator.
+				message = fmt.Sprintf("Invalid operand for '%v' operator (%v): The '%v' function could not be evaluated as a polynomial.",
+					topToken.text,
+					topToken.operatorValue.name,
+					operand.text)
+			default:
+				// Shouldn't happen.
+				message = fmt.Sprintf("Internal error: Invalid operand for '%v' operator (%v): Unrecognized token type %d",
+					topToken.text,
+					topToken.operatorValue.name,
+					operand.tokenType)
+			}
+
+			// If control makes it here, the current operand was invalid.
+			return errors.New(message)
+
+		} // end (for each operand)
+
+		// If control made it here, all operands are valid.
+		return nil
+	}
+
+	// Converts the given validated token, which must be a number token,
+	// symbol token, or polynomial token, to a polynomial token.
+	convertToPolynomialToken := func(t token) (token, error) {
+		var result token
+		result.tokenType = polynomialToken
+		result.polynomialValue = NewZeroPolynomial()
+
+		switch t.tokenType {
+		case numberToken:
+			// Any number N is equivalent to (N)x^0.
+			result.polynomialValue = NewUnivariatePolynomial([]float64{t.numericValue}, "x")
+		case symbolToken:
+			// (symbol)^1.
+			result.polynomialValue = NewUnivariatePolynomial([]float64{1, 0}, t.text)
+		case polynomialToken:
+			result.polynomialValue = t.polynomialValue;
+		default:
+			message := fmt.Sprintf("Internal error: cannot convert token '%v' (type %v) to a polynomial", t.text, t.tokenType)
+			return result, errors.New(message)
+		}
+		return result, nil
+	}
+
+	// Performs the actual evaluation for this method.
+	//
+	// topToken must be a functionToken or operatorToken.
+	//
+	// The operands must each be a validated polynomialToken.
+	//
+	// Returns the result as a polynomial token.
+	evaluate := func(topToken token, operands []token) (token, error) {
+		var result token
+		result.tokenType = polynomialToken
+		result.polynomialValue = NewZeroPolynomial()
+
+		// You will note that we're directly copying Polynomials
+		// below, even though a Polynomial is a slice of Terms and
+		// slices are reference types.  That's okay, though, because
+		// the operand tokens will not be used after this, and they'll
+		// only be garbage collected when their references are stale.
+		switch topToken.tokenType {
+		case operatorToken:
+			switch topToken.operatorValue.name {
+			case "UNARY +":
+				// Multiplying by +1 is a no-op.
+				result.polynomialValue = operands[0].polynomialValue
+			case "UNARY -":
+				// Negation.
+				result.polynomialValue = operands[0].polynomialValue
+				result.polynomialValue.MultiplyByConstant(-1.0)
+			case "MULTIPLY":
+				// Polynomial multiplication.
+				result.polynomialValue = operands[0].polynomialValue
+				result.polynomialValue.Multiply(operands[1].polynomialValue)
+			case "ADD":
+				// Polynomial addition.
+				result.polynomialValue = operands[0].polynomialValue
+				result.polynomialValue.Add(operands[1].polynomialValue)
+			case "SUBTRACT":
+				// Polynomial subtraction.  A - B = -1 * B + A.
+				result.polynomialValue = operands[1].polynomialValue
+				result.polynomialValue.MultiplyByConstant(-1.0)
+				result.polynomialValue.Add(operands[0].polynomialValue)
+			case "DIVIDE":
+				// Dividing a polynomial by another polynomial that
+				// happens to be a constant.  (We validated this.)
+				//
+				// TODO: There is the potential for dividing by 0
+				// here.  We should validate _that_, too.
+				denominator := operands[1].polynomialValue.Terms[0].Coefficient
+				result.polynomialValue = operands[0].polynomialValue
+				result.polynomialValue.MultiplyByConstant(1.0/denominator)
+			case "EXPONENT":
+				// Raising a polynomial by another polynomial
+				// that happens to be a constant.  (We
+				// validated this.)
+				//
+				// TODO: There is the potential for raising by
+				// a negative power or a fractional power
+				// here.  We should validate _that_, too.
+				exponent := operands[1].polynomialValue.Terms[0].Coefficient
+				if exponent == 0 {
+					result.polynomialValue = NewUnivariatePolynomial([]float64{1.0}, "x")
+				} else {
+					result.polynomialValue = operands[0].polynomialValue
+					for i := 0; i < int(exponent - 1); i++ {
+						result.polynomialValue.Multiply(operands[0].polynomialValue)
+					}
+				}
+			default:
+				// Unrecognized operator.  Shouldn't happen,
+				// but we didn't validate this.
+				//
+				// TODO: return an error here.
+			}
+		case functionToken:
+			// Evaluating a function on a polynomial that happens
+			// to be a constant.  (We validated this.)
+			input := operands[0].polynomialValue.Terms[0].Coefficient
+			output := topToken.functionValue.function(input)
+			result.polynomialValue = NewUnivariatePolynomial([]float64{output}, "x")
+		default:
+			// Shouldn't happen.  (We validated this.)
+		}
+
+		if len(operands) == 1 {
+			fmt.Printf("evaluate: %v(%v) == %v\n", topToken.text, operands[0].polynomialValue, result.polynomialValue)
+		} else {
+			fmt.Printf("evaluate: %v %v %v == %v\n", operands[0].polynomialValue, topToken.text, operands[1].polynomialValue, result.polynomialValue)
+		}
+		return result, nil
+	}
+
+	fmt.Printf("Initial:     ")
+	for _, t := range myParser.tokens {
+		fmt.Printf("%v, ", t.String())
+	}
+	fmt.Printf("\n\n")
+
+	// myParser.tokens, our original stack, contains Tokens in postfix order.  Evaluation from
+	// this point seems straightforward:
+	//
+	// 1) Since this is postfix, pop tokens from the beginning of myTokens
+	//    (not the end.)
+	// 2) Every time we encounter a symbol or constant, we turn that to a
+	//    Polynomial and push that to the operandStack.
+	// 3) Every time we encounter an operator or function, it pops the top
+	//    one or two polynomials from the operandStack, and we push the
+	//    evaluation result back to the operandStack as a polynomial.
+	// 4) The process repeats until the myTokens stack is empty.  At that
+	//    point, we should have one polynomial token left on the
+	//    operandStack: our final result.
+
+	operandStack := []token{}
+	for len(myParser.tokens) > 0 {
+
+		// Pop the top token from the *beginning* of the stack.
+		var topToken token
+		topToken, myParser.tokens = myParser.tokens[0], myParser.tokens[1:]
+
+		var operands []token = nil
+
+		switch {
+		case topToken.tokenType == operatorToken && topToken.operatorValue.type_ == binary:
+			// Binary operator.  Pop the top two operands.
+			if len(operandStack) < 2 {
+				return NewZeroPolynomial(), underflowError(topToken, operandStack)
+			}
+
+			var operand1, operand2 token
+			operand2, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+			operand1, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+
+			// Ensure that we can use them as polynomials.
+			err = validateOperands(topToken, []token{operand1, operand2})
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+			operand1, err = convertToPolynomialToken(operand1)
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+			operand2, err = convertToPolynomialToken(operand2)
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+			operands = []token{operand1, operand2}
+
+		case topToken.tokenType == operatorToken && topToken.operatorValue.type_ == unary:
+
+			// Unary operator.  Pop the top operand.
+			if len(operandStack) < 1 {
+				return NewZeroPolynomial(), underflowError(topToken, operandStack)
+			}
+
+			var operand token
+			operand, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+
+			// Ensure that we can use it as a polynomial.
+			err = validateOperands(topToken, []token{operand})
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+			operand, err = convertToPolynomialToken(operand)
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+			operands = []token{operand}
+
+		case topToken.tokenType == functionToken:
+
+			// Functions are considered to be unary operators by
+			// the Shunting Yard Algorithm, so we have to pop the
+			// top operand as usual.
+			if len(operandStack) < 1 {
+				return NewZeroPolynomial(), underflowError(topToken, operandStack)
+			}
+
+			// For now, we support these only if the operand is a
+			// number or if it is a polynomial of degree 0 -- in
+			// other words, if it can evaluate to a constant.
+			var operand token
+			operand, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+
+			err = validateOperands(topToken, []token{operand})
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
+
+			operands = []token{operand}
+
+		default:
+			// Push the token to the operand stack
+			// unconditionally.  If it's bad, we'll find out when
+			// we pop it next.
+			operandStack = append(operandStack, topToken)
+			continue
+		}
+
+		// If control made it here, we have our operator and our
+		// operands.  We are ready to evaluate.
+		evaluationResult, err := evaluate(topToken, operands)
+		if err != nil {
+			return NewZeroPolynomial(), err
+		}
+		operandStack = append(operandStack, evaluationResult)
+
+		// Debug: Print both stacks.
+		fmt.Printf("myTokens:     ")
+		for _, t := range myParser.tokens {
+			fmt.Printf("%v, ", t.String())
+		}
+		fmt.Printf("\n")
+		fmt.Printf("operandStack: ")
+		for _, t := range operandStack {
+			fmt.Printf("%v, ", t.String())
+		}
+		fmt.Printf("\n\n")
+
+	} // end (while the postfix stack is not empty)
+
+	// At this point, there _should_ be only one value left on the
+	// operandStack: our result.
+	if len(operandStack) != 1 {
+		message := fmt.Sprintf("Internal error: After evaluation, the operand stack's length should be 1, not %d", len(operandStack))
+		return NewZeroPolynomial(), errors.New(message)
+	}
+	return operandStack[0].polynomialValue, nil
 }

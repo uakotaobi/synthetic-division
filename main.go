@@ -22,15 +22,22 @@ func closeTerminalLibrary() {
 }
 
 func main() {
-	// _ = NewEquation("10x^2 + 5y + abs 2x")
-	//_ = NewEquation("-5x^2 + 1")
-	//// p2 := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
-	//// for i, _ := range p2.Terms {
-	////	p2.Terms[i].SortKey()
-	////	fmt.Printf("%d: sortKey=%v\n", i, p2.Terms[i].sortKey)
-	//// }
-	//// fmt.Printf("%v\n", p2)
-	//// return
+	// _ = NewPolynomial("10x^2 + 5y + abs 2x")
+	p2, err2 := NewPolynomial("(10x)^2 + (10x) + 1")
+	if err2 != nil {
+		fmt.Printf("ERROR: %v\n", err2.Error())
+	}
+	fmt.Printf("%v\n", p2)
+	// p2 := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
+	// p2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
+	// q2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
+	// p2.Multiply(q2)
+	// for i, _ := range p2.Terms {
+	//	p2.Terms[i].SortKey()
+	//	fmt.Printf("%d: sortKey=%v\n", i, p2.Terms[i].sortKey)
+	// }
+	// fmt.Printf("%v\n", p2)
+	return
 
 	err := initializeTerminalLibrary()
 	if err != nil {
@@ -51,14 +58,13 @@ func main() {
 	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", v)
 
 	// p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
-	p := NewUnivariatePolynomial([]float64{5, 0, 0}, "x")
-	q := NewUnivariatePolynomial([]float64{-5, 0, 0, 1}, "x")
-	r := NewPolynomialFromTerm(q.Terms[0])
-	p.Add(q)
-	p.Add(r)
+	p := NewUnivariatePolynomial([]float64{0, 1, -1}, "Eggs")
+	q := NewUnivariatePolynomial([]float64{0, 1, 1}, "Eggs")
+	r := NewUnivariatePolynomial([]float64{1, 0, 1}, "Eggs")
+	p.Multiply(q).Multiply(r)
 	// p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
 	// p.MultiplyByConstant(2)
-	colorString.Printf(x, y, "\r\n\n[" + p.ColorString() + "]")
+	colorString.Printf(x, y, "\r\n\n[%v]", p.ColorString())
 
 	termbox.Flush()
 
