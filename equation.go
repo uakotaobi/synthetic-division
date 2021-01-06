@@ -596,6 +596,7 @@ func (p *parser) scan(inputString string) error {
 			}
 		}
 	} // end (while we have not exhausted the input string)
+
 	return nil
 }
 
@@ -871,17 +872,28 @@ func NewPolynomialFromTerm(t Term) Polynomial {
 func NewPolynomial(s string) (Polynomial, error) {
 	var myParser parser
 
+	// A simple utility function that prints a list of tokens.
+	// printTokens := func(tokens []token) string {
+	//	result := ""
+	//	for _, t := range tokens {
+	//		result += fmt.Sprintf("%v, ", t.String())
+	//	}
+	//	return result
+	// }
+
 	err := myParser.scan(s)
 	if err != nil {
 		// Scanning error *(such as an illegal character.)
 		return NewZeroPolynomial(), err
 	}
+	// fmt.Printf("After scan:    %v\n", printTokens(myParser.tokens))
 
 	err = myParser.parse()
 	if err != nil {
 		// Parsing error (such as imbalanced parentheses.)
 		return NewZeroPolynomial(), err
 	}
+	// fmt.Printf("After parsing: %v\n", printTokens(myParser.tokens))
 
 	// This error is produced if the token stack has two few elements
 	// when we're trying to evaluate an operator or function.
@@ -1096,19 +1108,13 @@ func NewPolynomial(s string) (Polynomial, error) {
 			// Shouldn't happen.  (We validated this.)
 		}
 
-		if len(operands) == 1 {
-			fmt.Printf("evaluate: %v(%v) == %v\n", topToken.text, operands[0].polynomialValue, result.polynomialValue)
-		} else {
-			fmt.Printf("evaluate: %v %v %v == %v\n", operands[0].polynomialValue, topToken.text, operands[1].polynomialValue, result.polynomialValue)
-		}
+		// if len(operands) == 1 {
+		//	fmt.Printf("evaluate: %v(%v) == %v\n", topToken.text, operands[0].polynomialValue, result.polynomialValue)
+		// } else {
+		//	fmt.Printf("evaluate: %v %v %v == %v\n", operands[0].polynomialValue, topToken.text, operands[1].polynomialValue, result.polynomialValue)
+		// }
 		return result, nil
 	}
-
-	fmt.Printf("Initial:     ")
-	for _, t := range myParser.tokens {
-		fmt.Printf("%v, ", t.String())
-	}
-	fmt.Printf("\n\n")
 
 	// myParser.tokens, our original stack, contains Tokens in postfix order.  Evaluation from
 	// this point seems straightforward:
@@ -1203,9 +1209,13 @@ func NewPolynomial(s string) (Polynomial, error) {
 			operands = []token{operand}
 
 		default:
-			// Push the token to the operand stack
-			// unconditionally.  If it's bad, we'll find out when
-			// we pop it next.
+			// Push (the polynomial conversion of) the token to
+			// the operand stack unconditionally.  If it's bad,
+			// we'll find out when we pop it next.
+			topToken, err = convertToPolynomialToken(topToken)
+			if err != nil {
+				return NewZeroPolynomial(), err
+			}
 			operandStack = append(operandStack, topToken)
 			continue
 		}
@@ -1219,16 +1229,8 @@ func NewPolynomial(s string) (Polynomial, error) {
 		operandStack = append(operandStack, evaluationResult)
 
 		// Debug: Print both stacks.
-		fmt.Printf("myTokens:     ")
-		for _, t := range myParser.tokens {
-			fmt.Printf("%v, ", t.String())
-		}
-		fmt.Printf("\n")
-		fmt.Printf("operandStack: ")
-		for _, t := range operandStack {
-			fmt.Printf("%v, ", t.String())
-		}
-		fmt.Printf("\n\n")
+		// fmt.Printf("myTokens:     %v\n", printTokens(myParser.tokens))
+		// fmt.Printf("operandStack: %v\n\n", printTokens(operandStack))
 
 	} // end (while the postfix stack is not empty)
 

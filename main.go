@@ -23,11 +23,11 @@ func closeTerminalLibrary() {
 
 func main() {
 	// _ = NewPolynomial("10x^2 + 5y + abs 2x")
-	p2, err2 := NewPolynomial("(10x)^2 + (10x) + 1")
-	if err2 != nil {
-		fmt.Printf("ERROR: %v\n", err2.Error())
-	}
-	fmt.Printf("%v\n", p2)
+	// p2, err2 := NewPolynomial("Eggs")
+	// if err2 != nil {
+	//	fmt.Printf("ERROR: %v\n", err2.Error())
+	// }
+	// fmt.Printf("%v\n", p2)
 	// p2 := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
 	// p2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
 	// q2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
@@ -37,7 +37,7 @@ func main() {
 	//	fmt.Printf("%d: sortKey=%v\n", i, p2.Terms[i].sortKey)
 	// }
 	// fmt.Printf("%v\n", p2)
-	return
+	// return
 
 	err := initializeTerminalLibrary()
 	if err != nil {
@@ -58,12 +58,12 @@ func main() {
 	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", v)
 
 	// p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
-	p := NewUnivariatePolynomial([]float64{0, 1, -1}, "Eggs")
-	q := NewUnivariatePolynomial([]float64{0, 1, 1}, "Eggs")
-	r := NewUnivariatePolynomial([]float64{1, 0, 1}, "Eggs")
+	p, _ := NewPolynomial("Eggs^2 - 1")
+	q, _ := NewPolynomial("Eggs^2 + 1")
+	r, _ := NewPolynomial("Eggs^4 + 1")
 	p.Multiply(q).Multiply(r)
-	// p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
-	// p.MultiplyByConstant(2)
+	p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
+	p.MultiplyByConstant(2)
 	colorString.Printf(x, y, "\r\n\n[%v]", p.ColorString())
 
 	termbox.Flush()
