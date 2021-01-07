@@ -1023,6 +1023,8 @@ func NewPolynomial(s string) (Polynomial, error) {
 			message := fmt.Sprintf("Internal error: cannot convert token '%v' (type %v) to a polynomial", t.text, t.tokenType)
 			return result, errors.New(message)
 		}
+		result.text = result.polynomialValue.String()
+		// fmt.Sprintf("convertToPolynomialToken: converted %v to %v\n", t, result)
 		return result, nil
 	}
 
@@ -1113,6 +1115,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 		// } else {
 		//	fmt.Printf("evaluate: %v %v %v == %v\n", operands[0].polynomialValue, topToken.text, operands[1].polynomialValue, result.polynomialValue)
 		// }
+		result.text = result.polynomialValue.String()
 		return result, nil
 	}
 
