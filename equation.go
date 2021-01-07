@@ -130,7 +130,8 @@ func (term *Term) SortKey() string {
 
 // Converts a Term to a plain string.
 func (t Term) String() string {
-	return NewPolynomialFromTerm(t).toString("", "", "", "", "")
+	return fmt.Sprintf("{C=%v, V=d%v}", t.Coefficient, t.Variables)
+	// return NewPolynomialFromTerm(t).toString("", "", "", "", "")
 }
 
 // Converts a Term to a colorful string that can be interpreted by colorPrint().
@@ -189,6 +190,12 @@ func (poly *Polynomial) Add(p Polynomial) *Polynomial {
 				// Add newTerm to the current term.
 				// fmt.Printf("- Added %v to %v, yielding", newTerm, terms[j])
 				terms[j].Coefficient += newTerm.Coefficient
+				if terms[j].Coefficient == 0 {
+					// Optimize away terms that summed to
+					// 0.
+					copy(terms[j:], terms[j+1:])
+					terms = terms[:len(terms) - 1]
+				}
 				merged = true
 				// fmt.Printf("%v\n", terms[j])
 				break

@@ -23,7 +23,7 @@ func closeTerminalLibrary() {
 
 func main() {
 	// _ = NewPolynomial("10x^2 + 5y + abs 2x")
-	p2, err2 := NewPolynomial("2/(x + 1)")
+	p2, err2 := NewPolynomial("3x^(x - 2x + 2 + x) + x + 2")
 	if err2 != nil {
 		fmt.Printf("ERROR: %v\n", err2.Error())
 	}
