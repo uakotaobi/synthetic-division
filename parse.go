@@ -2,7 +2,7 @@ package main
 
 //////////////////////////////////////////////////////////////////////////////
 // Parse.go: Defines the NewPolynomial(string) parsing function, and all of //
-// the types and methods needed to support it.				    //
+// the types and methods needed to support it.                              //
 //////////////////////////////////////////////////////////////////////////////
 
 import (
@@ -14,59 +14,25 @@ import (
 	"regexp"
 )
 
-// An expression tree is a sequence of tokens in postfix order.
-
-// These notes below have nothing to do with Polynomial objects themselves!
-// They are all _factorings_ of the Polynomial -- recombinations of Terms in
-// order to present a Polynomial in a different way.  The coefficients in
-// these cases are _themselves_ (basic) Polynomials.  What's more, these
-// expressions can be multiplied out and simplified into a basic Polynomial.
+// A token is an atomic piece of an expression.  An input string must be
+// decomposed into tokens before it can be evaluated.
 //
-// What's being described here are _Polynomial Expressions_, or at least one
-// form of them.  Factoring a Polynomial leads to an expression, and has
-// nothing to do with synthetic division.
+// For instance, in the expression "(x + 2) * 5", the tokens are:
 //
-// // A true polynomial combines any number of univariate polynomials, each using
-// // a different variable (these are the keys in the map.)
-// //
-// // The polynomial can be treated as a univariate polynomial where the other
-// // terms are all considered constant with respect to that variable.  For
-// // instance, 5xy - zx + y can be treated as
-// //
-// //     (5y - z)x¹ + (y)x⁰
-// //
-// // with respect to x, or as
-// //
-// //     (5x + 1)y¹ + (-zx)y⁰
-// //
-// // with respect to y, or as
-// //
-// //     (-x)z¹ + (5xy + y)z⁰
-// //
-// // with respect to z.  So each coefficient of a polynomial with respect to
-// // some variable is really itself a polynomial of lower degree which lacks
-// // that variable.
-
-////////////////////////////////
-// Shunting-Yard Parser code  //
-////////////////////////////////
+//   - OPERATOR(LEFT-PAREN)
+//   - SYMBOL("x")
+//   - OPERATOR(ADD)
+//   - NUMBER(2.0)
+//   - OPERATOR(TIMES)
+//   - NUMBER(5.0)
 //
-// The following subroutines implement an infix parser that can convert
-// strings such as "x^2 - 1" into polynomial Equation objects.  Limitations:
+// Tokens include information that allows debugging problems with the original
+// string, such as the original text that we read form the string and the
+// position of that text within the string itself.
 //
-// - While any number of variables can be present in the input string, a valid
-//   polynomial Equation contains only one variable.
-// - Unary functions are supported (and thus expressions containing functions
-//   can be fully evaluated),
-
-const (
-	operatorToken int = iota
-	symbolToken
-	functionToken
-	numberToken
-	polynomialToken  // A special token type that non-operator tokens are replaced with during evaluation (See NewPolynomial().)
-)
-
+// Finally, tokens have a type -- which is an integer -- and data.  All tokens
+// contain data fields for all token types, which is not ideal, but it was
+// easier than using interfaces and type switches.
 type token struct {
 	tokenType int
 	inputPosition int
@@ -76,6 +42,16 @@ type token struct {
 	functionValue function
 	polynomialValue Polynomial
 }
+
+// These are the possible values of the token.tokenType field -- the types of
+// tokens we expect to encounter in expressions.
+const (
+	operatorToken int = iota // An operator, including parentheses.
+	symbolToken              // A symbol, like "x" or "foo."  These can be more than one character long.
+	functionToken            // A symbol that matches a known function.
+	numberToken              // A floating-point number.
+	polynomialToken          // A special token type that non-operator tokens are replaced with during evaluation (See NewPolynomial().)
+)
 
 // Prints a token.
 func (t token) String() string {
@@ -95,6 +71,8 @@ func (t token) String() string {
 	}
 }
 
+// All operators fall into one of two categories (with the exception of
+// left and right parentheses, which are a little special.)
 type operatorType int
 const (
 	unary operatorType = iota
@@ -102,12 +80,19 @@ const (
 	other
 )
 
+// All operators are either left-associative [a + b + c -> (a + b) + c] or
+// right-associative [a^b^c -> a^(b^c)] -- again, with the exception of
+// parentheses.
 const (
 	leftAssociativity = -1
 	rightAssociativity = +1
 	noAssociativity = 0
 )
 
+// Data for tokens of type operatorToken.
+//
+// Operators are tokens that operate on one or more operand tokens --
+// that is, numberTokens, symbolTokens, or polynomialTokens.
 type operator struct {
 	name string
 	type_ operatorType
@@ -130,25 +115,32 @@ var operators = map[string]operator {
 	"-":   operator{"SUBTRACT",    binary, 60, leftAssociativity},
 }
 
+// Data for tokens of type functionToken.
+//
 // These functions can only take one argument right now (at least until I
 // learn how to modify the Shunting Yard Algorithm to handle more function
 // arguments.)
 type function struct {
-	argumentCount int
+	argumentCount int              // I had planned to use this to support functions with more than one argument, but that never worked out.
 	function func(float64) float64 // The function's evaluation routine.
 }
 
+// The known functions that we can evaluate.
 var functions = map[string]function {
 	"abs": function{1, math.Abs},
+}
+
+////////////////////////////////////////////////////
+// The object that does the parsing and scanning. //
+////////////////////////////////////////////////////
+
+type parser struct {
+	tokens []token
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 // The scanner converts an incoming string into an (infix-)ordered list of tokens. //
 /////////////////////////////////////////////////////////////////////////////////////
-
-type parser struct {
-	tokens []token
-}
 
 // Converts the given input string into a list of tokens.
 func (p *parser) scan(inputString string) error {
@@ -275,7 +267,9 @@ func scanNumberOrSymbol(inputString string, index int) (newIndex int, t token, e
 
 //////////////////////////////////////////////////////////////////
 // The parser converts an (infix-)ordered list of tokens into a //
-// (postfix-)ordered list of tokens.				//
+// (postfix-)ordered list of tokens.                            //
+//                                                              //
+// This parser uses Dijkstra's Shunting-Yard Algorithm.         //
 //////////////////////////////////////////////////////////////////
 
 // Converts p.tokens from infix order to postfix order, suitable for direct
@@ -443,8 +437,14 @@ func (p *parser) parse() error {
 	return nil
 }
 
-// The evaluator converts a (postfix-)ordered list of tokens into a polynomial
-// Equation (if it can.)
+/////////////////////////////////////////////////////////////////////////////////
+// The evaluator converts a (postfix-)ordered list of tokens into a Polynomial //
+// (if it can.)                                                                //
+//                                                                             //
+// Our evaluator happens to be sequestered inside the NewPolynomial()          //
+// constructor.                                                                //
+/////////////////////////////////////////////////////////////////////////////////
+
 func NewPolynomial(s string) (Polynomial, error) {
 	var myParser parser
 
