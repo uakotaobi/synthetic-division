@@ -295,10 +295,14 @@ func (p *parser) parse() error {
 			outputQueue = append([]token{t}, outputQueue...)
 
 			// As a special bit of finesse, if the next token is a
-			// symbol ("10x") or a function ("10 sin(x)"), we assume implicit
+			// symbol ("10x"), a function ("10 sin(x)"), or a left
+			// parenthesis ("10(7)"), we assume implicit
 			// multiplication and enqueue the multiplication
 			// operator automatically.
-			if index < len(p.tokens) - 1 && (p.tokens[index + 1].tokenType == symbolToken || p.tokens[index + 1].tokenType == functionToken) {
+			if index < len(p.tokens) - 1 &&
+				(p.tokens[index + 1].tokenType == symbolToken ||
+				p.tokens[index + 1].tokenType == functionToken ||
+				(p.tokens[index + 1].tokenType == operatorToken && p.tokens[index + 1].operatorValue.name == "LEFT-PAREN")) {
 				var op token
 				op.tokenType = operatorToken
 				op.text = "*"
@@ -314,6 +318,20 @@ func (p *parser) parse() error {
 			// Symbols are numbers at heart.  Push them directly
 			// to the output queue.
 			outputQueue = append([]token{t}, outputQueue...)
+
+			// As a special bit of finesse, if the next token is a
+			// left parenthesis ("x(x + 5)"), we assume implicit
+			// multiplication and enqueue the multiplication
+			// operator automatically.
+			if index < len(p.tokens) - 1 &&
+				(p.tokens[index + 1].tokenType == operatorToken && p.tokens[index + 1].operatorValue.name == "LEFT-PAREN") {
+				var op token
+				op.tokenType = operatorToken
+				op.text = "*"
+				op.inputPosition = t.inputPosition + len(t.text)
+				op.operatorValue = operators["*"]
+				operatorStack = append(operatorStack, op)
+			}
 
 			// Symbols are numbers for the purpose of unary
 			// operators, too.
