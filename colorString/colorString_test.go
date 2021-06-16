@@ -1,0 +1,34 @@
+// Test suite for headless (well, terminal-less) colorString functions.
+//
+// To execute the test suite, simply run "go test".
+
+package colorString
+
+import (
+	"testing"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSubstr(t *testing.T) {
+
+	// These examples come string out of the Substr() documentation.
+	testData := []struct{source string; start, length int; expected string} {
+		{ "`7~1Test", 1, 2, "es" },
+		{ "`7~1Test", 0, 2, "`7~1Te" },
+		{ "`7~1Test~4String", 0, 5, "`7~1Test~4S" },
+		{ "`7~1Test~4String", 0, 4, "`7~1Test" },
+	}
+
+	for _, datum := range testData {
+		actual := Substr(datum.source, datum.start, datum.length)
+		assert.Equal(t,
+			datum.expected,
+			actual,
+			"Expected Substr(%v, %v, %v) to be '%v', not '%v'",
+			datum.source,
+			datum.start,
+			datum.length,
+			datum.expected,
+			actual)
+	}
+}
