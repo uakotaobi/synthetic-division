@@ -99,10 +99,10 @@ func Substr(s string, start, length int) (result string) {
 	}
 
 	// Notice that we always start at position 0, even if start > 0.
-	// That's because we try to never split of break color codes (such a
-	// result is not useful to the caller.)  That requires us to read
-	// _all_ of the color codes in their entirety, skipping ahead until we
-	// get to the actual start character.
+	// That's because we try to never split or break color codes (since
+	// such a result would not be useful to the caller.)  This requires us
+	// to read _all_ of the color codes in their entirety, skipping ahead
+	// until we get to the actual start character.
 	characterCount := 0
 	for i := 0; i < len(s);  {
 
@@ -271,66 +271,17 @@ func Print(x, y int, s string) (charactersPrinted int, err error) {
 		return 0, nil
 	}
 
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if i < len(s) - 1 {
-			// If we can detect a two-character escape sequence,
-			// treat it as if it were the corresponding control
-			// code.
-			if s[i] == '\\' {
+	for i := 0; i < len(s); {
 
-				_, ok := letterToControlCodeTable[s[i + 1]]
-				if ok {
-					c = letterToControlCodeTable[s[i + 1]]
-					// Skip the escape seequence.
-					i += 2
-				} else {
-					// You're escaping a character that
-					// didn't need escaping.  Skip the
-					// next character.
-					c = s[i + 1]
-					i += 1
-				}
+		var c byte
+		c, i, foreground, background = readNextCharacter(s, i, foreground, background)
 
-			} else if s[i] == '`' {
-
-				_, ok := hexDigitToColorTable[s[i + 1]]
-				if ok {
-					// Foreground color switch.  Skip the
-					// entire sequence.
-					foreground = hexDigitToColorTable[s[i + 1]]
-					i += 1
-					continue
-				} else {
-					// Invalid color escape sequence.  We
-					// will print it literally.
-					c = s[i]
-				}
-
-			} else if s[i] == '~' {
-
-				_, ok := hexDigitToColorTable[s[i + 1]]
-				if ok {
-					// Background color switch.  Skip the
-					// entire sequence.
-					background = hexDigitToColorTable[s[i + 1]]
-
-					// TODO: termBox doesn't support a
-					// blink attribute like ncurses does,
-					// but for some terminals, the blink
-					// attribute is the only way to get
-					// the 8 bright background colors.
-					// You'd think termBox would give us
-					// more control over this.
-					i += 1
-					continue
-				} else {
-					// Invalid color escape sequence.  We
-					// will print it literally.
-					c = s[i]
-				}
-
-			}
+		if c == 0 && i >= len(s) {
+			// This case should only be reached if we were given a
+			// string without any escape sequences or real
+			// characters in it.  In that In that case, there is
+			// nothing to do.
+			return charactersPrinted, nil
 		}
 
 		// At this point, all escape sequences are converted or dealt
