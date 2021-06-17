@@ -17,6 +17,9 @@ func TestSubstr(t *testing.T) {
 		{ "`7~1Test", 0, 2, "`7~1Te" },
 		{ "`7~1Test~4String", 0, 5, "`7~1Test~4S" },
 		{ "`7~1Test~4String", 0, 4, "`7~1Test" },
+		{ "`7~1Test~4String", 0, 0, "" },
+		{ "`7~1\b", 0, 100, "`7~1\b" },
+		{ "`7~1", 0, 100, "" },
 	}
 
 	for _, datum := range testData {
@@ -24,7 +27,7 @@ func TestSubstr(t *testing.T) {
 		assert.Equal(t,
 			datum.expected,
 			actual,
-			"Expected Substr(%v, %v, %v) to be '%v', not '%v'",
+			"Expected Substr(\"%v\", %v, %v) to be '%v', not '%v'",
 			datum.source,
 			datum.start,
 			datum.length,

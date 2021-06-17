@@ -83,10 +83,11 @@ func CursorPosition() (int, int) {
 //   colorString.Substr("`7~1Test~4String", 0, 4)   // Returns "`7~1Test"    (second code unread)
 //
 // Arguments:
-//   - s: The color string to read.
-//   - start: The index within s where reading should begin.
-//   - length: The desired length of the substring.  We might not be able to
-//     meet this length if we run out of real characters to read.
+//   - s:      The color string to read.
+//   - start:  The index within s where reading should begin.
+//   - length: The desired number of "real" characters in the result string.
+//             We might not be able to meet this length if we run out of real
+//             characters to read.
 //
 // Returns:
 //   Returns the desired substring, or an empty string if the starting index
@@ -106,15 +107,23 @@ func Substr(s string, start, length int) (result string) {
 	characterCount := 0
 	for i := 0; i < len(s);  {
 
-		_, nextIndex, _, _ := readNextCharacter(s, i, termbox.ColorWhite, termbox.ColorBlack)
+		var c byte
+		c, nextIndex, _, _ := readNextCharacter(s, i, termbox.ColorWhite, termbox.ColorBlack)
+
+		if c == 0 && nextIndex >= len(s) {
+			// Read a color control code at the end of the
+			// string.  We won't add it.
+			break
+		}
+
 		characterCount += 1
+		if characterCount > start + length {
+			// Got all the characters we needed.
+			break
+		}
 
 		if characterCount > start {
 			result += s[i:nextIndex]
-		}
-
-		if characterCount >= start + length {
-			break
 		}
 
 		i = nextIndex
@@ -160,8 +169,9 @@ func readNextCharacter(s string, index int,
 
 	nextForeground, nextBackground = foreground, background
 
+	c = 0
 	if index >= len(s) {
-		return 0, index, nextForeground, nextBackground
+		return c, index, nextForeground, nextBackground
 	}
 
 	// Loop until we read exactly one "real" character (or until
@@ -205,6 +215,7 @@ func readNextCharacter(s string, index int,
 					// next "real" character.
 					nextForeground = hexDigitToColorTable[s[index + 1]]
 					index += 2
+					c = 0
 					continue
 				}
 
@@ -227,6 +238,7 @@ func readNextCharacter(s string, index int,
 
 					nextBackground = hexDigitToColorTable[s[index + 1]]
 					index += 2
+					c = 0
 					continue
 				}
 			}
