@@ -2,7 +2,7 @@ package main
 
 ///////////////////////////////////////////////////////////////////////////
 // Polynomial.go: Defines the Polynomial struct and all of its functions //
-// _except_ NewPolynomial(string).					 //
+// _except_ NewPolynomial(string) -- see parse.go for that.		 //
 ///////////////////////////////////////////////////////////////////////////
 
 import (
@@ -306,6 +306,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 	return result
 }
 
+// ===========================================================================
 // These notes below have nothing to do with Polynomial objects themselves!
 // They are all _factorings_ of the Polynomial -- recombinations of Terms in
 // order to present a Polynomial in a different way.  The coefficients in
@@ -315,7 +316,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 // What's being described here are _Polynomial Expressions_, or at least one
 // form of them.  Factoring a Polynomial leads to an expression, and has
 // nothing to do with synthetic division.
-//
+// ===========================================================================
 // // A true polynomial combines any number of univariate polynomials, each using
 // // a different variable (these are the keys in the map.)
 // //
@@ -336,6 +337,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 // // with respect to z.  So each coefficient of a polynomial with respect to
 // // some variable is really itself a polynomial of lower degree which lacks
 // // that variable.
+// ===========================================================================
 
 // Returns an empty Polynomial.
 func NewZeroPolynomial() Polynomial {

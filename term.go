@@ -64,8 +64,8 @@ func (term Term) CompatibleWith(other Term) bool {
 	return true
 }
 
-// Returns a string that allows diverse lists of Terms to be sorted in a
-// preferred order.  The rules are:
+// Returns a somewhat unique string that allows diverse lists of Terms to be
+// sorted in a preferred order.  The rules are:
 //
 // 1. Constants come last and have the (lexicographically) lowest sort key.
 // 2. Terms of higher maximum exponent have a higher sort key.
@@ -128,8 +128,8 @@ func (term *Term) SortKey() string {
 // Converts a Term to a plain string.
 func (t Term) String() string {
 	// We could have called NewPolynomialFromTerm(t).toString("", "", "",
-	// "", "") here, but I prefer printing a Term to give me information
-	// which is useful for debugging.
+	// "", "") here, but I would prefer that directly printing a Term give
+	// me information which is useful for debugging.
 
 	return fmt.Sprintf("{C=%v, V=d%v}", t.Coefficient, t.Variables)
 }
