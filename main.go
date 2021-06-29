@@ -58,13 +58,7 @@ func main() {
 	var v interface{} = "`9~0agree"
 	colorString.Printf(x, y, "`fDon't %s`7~0 %s?", "~1`0you", v)
 
-	// p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
-	p, _ := NewPolynomial("Eggs^2 - 1")
-	q, _ := NewPolynomial("Eggs^2 + 1")
-	r, _ := NewPolynomial("Eggs^4 + 1")
-	p.Multiply(q).Multiply(r)
-	p.Terms = append(p.Terms, Term{60, map[string]int{"x":3,"y":4,"z":1}, nil, ""})
-	p.MultiplyByConstant(2)
+	p := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
 	colorString.Printf(x, y, "\r\n\n[%v]", p.ColorString())
 
 	termbox.Flush()

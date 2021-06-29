@@ -294,7 +294,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 			variables[v] = len(coefficients) - 1 - i
 		}
 
-		// Start each new Term with a precalcualted sortKey.
+		// Start each new Term with a precalculated sortKey.
 		term := NewTerm()
 		term.Coefficient = coefficients[i]
 		term.Variables = variables
