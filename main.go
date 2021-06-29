@@ -24,11 +24,11 @@ func closeTerminalLibrary() {
 func main() {
 	// _ = NewPolynomial("10x^2 + 5y + abs 2x")
 	// p2, err2 := NewPolynomial("x(3) + 2")
-	p2, err2 := NewPolynomial("(x^2 + x + 1)*(x^3 - x + 2)")
-	if err2 != nil {
-		fmt.Printf("ERROR: %v\n", err2.Error())
-	}
-	fmt.Printf("%v\n", p2)
+	// p2, err2 := NewPolynomial("(x^2 + x + 1)*(x^3 - x + 2)")
+	// if err2 != nil {
+	//	fmt.Printf("ERROR: %v\n", err2.Error())
+	// }
+	// fmt.Printf("%v\n", p2)
 	// p2 := NewUnivariatePolynomial([]float64{-1, 3, 1.0, 0, 0, -1}, "x")
 	// p2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
 	// q2 := NewUnivariatePolynomial([]float64{1, 0}, "x")
@@ -38,7 +38,7 @@ func main() {
 	//	fmt.Printf("%d: sortKey=%v\n", i, p2.Terms[i].sortKey)
 	// }
 	// fmt.Printf("%v\n", p2)
-	return
+	// return
 
 	err := initializeTerminalLibrary()
 	if err != nil {
