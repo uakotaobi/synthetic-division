@@ -120,9 +120,7 @@ func Substr(s string, start, length int) (result string) {
 		if characterCount > start + length {
 			// Got all the characters we needed.
 			break
-		}
-
-		if characterCount > start {
+		} else if characterCount > start {
 			result += s[i:nextIndex]
 		}
 
