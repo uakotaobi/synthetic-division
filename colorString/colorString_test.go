@@ -38,3 +38,29 @@ func TestSubstr(t *testing.T) {
 			actual)
 	}
 }
+
+// Confirms that the Length() function works the way it's expected to.
+func TestLength(t *testing.T) {
+
+	// These examples come straight out of the Substr() documentation, so
+	// they had better work!
+	testData := []struct{source string; expected int} {
+		{ "`7~1Test", 4 },
+		{ "`7~1Test~4String", 10 },
+		{ "`7~1\b", 1 },
+		{ "`7~1", 0 },
+		{ "Te`7st~4", 4 },
+		{ "Te`7st~4\b\t", 6 },
+	}
+
+	for _, datum := range testData {
+		actual := Length(datum.source)
+		assert.Equal(t,
+			datum.expected,
+			actual,
+			"Expected Length(\"%v\") to be '%v', not '%v'",
+			datum.source,
+			datum.expected,
+			actual)
+	}
+}

@@ -27,7 +27,7 @@ import (
 //   - NUMBER(5.0)
 //
 // Tokens include information that allows debugging problems with the original
-// string, such as the original text that we read form the string and the
+// string, such as the original text that we read from the string and the
 // position of that text within the string itself.
 //
 // Finally, tokens have a type -- which is an integer -- and data.  All tokens
@@ -489,7 +489,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 	}
 	// fmt.Printf("After parsing: %v\n", printTokens(myParser.tokens))
 
-	// This error is produced if the token stack has two few elements
+	// This error is produced if the token stack has too few elements
 	// when we're trying to evaluate an operator or function.
 	underflowError := func(topToken token, operandStack []token) error {
 		message := ""

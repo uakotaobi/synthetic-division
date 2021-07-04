@@ -116,6 +116,9 @@ func Substr(s string, start, length int) (result string) {
 			break
 		}
 
+		// Note that we only count only one real character at a time,
+		// even if a long sequence of undisplayable color codes
+		// preceded it.
 		characterCount += 1
 		if characterCount > start + length {
 			// Got all the characters we needed.
@@ -128,6 +131,30 @@ func Substr(s string, start, length int) (result string) {
 	}
 
 	return result
+}
+
+// Returns the length of a given colorString, ignoring color code sequences
+// and all control codes except the inline ones (\b and \t.)
+//
+// This is really similar to Substr(), actually.
+func Length(s string) int {
+	characterCount := 0
+	for i := 0; i < len(s);  {
+
+		var c byte
+		c, nextIndex, _, _ := readNextCharacter(s, i, termbox.ColorWhite, termbox.ColorBlack)
+
+		if c == 0 && nextIndex >= len(s) {
+			// Read a color control code at the end of the
+			// string.  We won't add it.
+			break
+		}
+
+		characterCount += 1
+		i = nextIndex
+	}
+
+	return characterCount
 }
 
 // This function reads one character from a color string, but it will process
