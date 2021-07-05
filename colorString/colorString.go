@@ -76,17 +76,17 @@ func CursorPosition() (int, int) {
 }
 
 // Returns the substring of the given color string (i.e., a string that
-// contains color code sequences) having the given starting position and final
-// printed length.  Forms use this function to ensure that color strings
-// representing polynomials do not exceed the length of a given form field.
+// contains 0 or more "`n" or "~n" color code sequences) having the given
+// starting position and final printed length.  Forms use this function to
+// ensure that color strings representing polynomials do not exceed the length
+// of a given form field.
 //
 // The main feature that distinguishes this function from ordinary string
 // slicing is its awareness of color code sequences.
 //
 // Caveats:
-// 1. For sanity's sake, all control codes except for the inline ones -- "\b",
-//    and "\t" -- are ignored.  They do not factor into the final substring
-//    length.
+// 1. For sanity's sake, all C-style escape sequences are ignored.  They do
+//    not factor into the final substring length.
 // 2. The substring will contain no color code sequences unless the original
 //    string has at least one complete `n or ~n sequence.
 // 3. If this function reads the start of a color code sequence, then it will
@@ -178,7 +178,7 @@ func Substr(s string, start, length int) (result string) {
 }
 
 // Returns the length of a given colorString, ignoring color code sequences
-// and all control codes except the inline ones (\b and \t.)
+// and all C-style escape sequences.
 //
 // This is really similar to Substr(), actually.
 func Length(s string) int {
@@ -201,10 +201,33 @@ func Length(s string) int {
 	return characterCount
 }
 
+// Returns a colorString with all color code sequences removed from it.
+// C-style escapes are untouched.
+//
+// This, too, is similar to Substr() and Length().
+func Normalize(s string) (result string) {
+	for i := 0; i < len(s);  {
+
+		var c byte
+		c, nextIndex, _, _ := readNextCharacter(s, i, termbox.ColorWhite, termbox.ColorBlack)
+
+		if c == 0 && nextIndex >= len(s) {
+			// Read a color control code at the end of the
+			// string.  We won't add it.
+			break
+		}
+
+		result += string(c)
+		i = nextIndex
+	}
+
+	return result
+}
+
 // This function reads one character from a color string, but it will process
-// any escape sequences and color control codes it encounters along the way.
-// It will return the next character, the next position to read from, and the
-// colors that the next character should have.
+// any C-style escape sequences and color code sequences it encounters along
+// the way.  It will return the next character, the next position to read
+// from, and the colors that the next character should have.
 //
 // Since Substr() and Print() share similar sequence-parsing code, this
 // function isolates that.
@@ -212,8 +235,8 @@ func Length(s string) int {
 // Arguments:
 //
 // - s:		 The color string to read.  It may contain any number of
-//               escape sequences and control codes; invalid control codes
-//               will be treated as ordinary characters.
+//               escape sequences and color code sequences; invalid sequences
+//               of all kinds will be treated as ordinary characters.
 // - index:      The position in the string from which to start reading.
 // - foreground: The current foreground color according to whichever function
 //               is reading the string (i.e., Substr() or Print().)
@@ -222,9 +245,9 @@ func Length(s string) int {
 // Return values:
 //
 // - c:              The actual next character that was read.  This will be
-//                   an escape sequence character if a two-character escape
-//                   sequence was encountered, and it will be a 0 byte if the
-//                   end of the string has been reached.
+//                   a C-style escape sequence character if that was last
+//                   thing encountered, and it will be byte(0) if the end of
+//                   the string has been reached.
 // - nextIndex:      The position where reading should take place the next
 //                   time this function is called.  If this is beyond the last
 //                   character in the string, parsing is at an end.
@@ -251,28 +274,22 @@ func readNextCharacter(s string, index int,
 		c = s[index]
 
 		if index < len(s) - 1 {
-			// If we can detect a two-character escape sequence,
+			// If we can detect a valid C-style escape sequence,
 			// treat it as if it were the corresponding control
 			// code.
 			if s[index] == '\\' {
 
 				_, ok := letterToControlCodeTable[s[index + 1]]
 				if ok {
-					// The "real" character is an escape
-					// sequence.  Convert 'b' to '\b', 'n'
-					// to '\n', and so on.
+					// The second character completes a valid
+					// escape sequence.  Convert 'b' to
+					// '\b', 'n' to '\n', and so on.
 					c = letterToControlCodeTable[s[index + 1]]
-				} else {
-					// You're escaping a character that
-					// didn't need escaping (like "\8".)
-					// Return that character as if it were
-					// unescaped.
-					c = s[index + 1]
-				}
 
-				// The next read should skip the second
-				// character of this escape sequence.
-				index += 1
+					// The next read should skip the second
+					// character of this escape sequence.
+					index += 1
+				}
 
 			} else if s[index] == '`' {
 

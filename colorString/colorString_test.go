@@ -47,6 +47,10 @@ func TestSubstr(t *testing.T) {
 		// Substr() should never add termbox.ColorDefault.  If a
 		// string lacks color, so should its substrings.
 		{ "No color information", 3, 100, "color information" },
+
+		// Invalid sequences are ignored.
+		{ "`-~G Test \\x\\1~1`0after", 0, 14, "`-~G Test \\x\\1" },
+		{ "`-~G Test \\x\\1~1`0after", 14, 100, "`0~1after" },
 	}
 
 	for _, datum := range testData {
@@ -83,6 +87,32 @@ func TestLength(t *testing.T) {
 			datum.expected,
 			actual,
 			"Expected Length(\"%v\") to be '%v', not '%v'",
+			datum.source,
+			datum.expected,
+			actual)
+	}
+}
+
+// Confirms that the Normalize() function works the way it's expected to.
+func TestNormalize(t *testing.T) {
+
+	// These examples come straight out of the Substr() documentation, so
+	// they had better work!
+	testData := []struct{source string; expected string} {
+		{ "`7~1Test", "Test" },
+		{ "`7~1Test~4String", "TestString" },
+		{ "`7~1\b", "\b" },
+		{ "`7~1", "" },
+		{ "Te`7st~4", "Test" },
+		{ "Te`7st~4\b\t", "Test\b\t" },
+	}
+
+	for _, datum := range testData {
+		actual := Normalize(datum.source)
+		assert.Equal(t,
+			datum.expected,
+			actual,
+			"Expected Normalize(\"%v\") to be '%v', not '%v'",
 			datum.source,
 			datum.expected,
 			actual)
