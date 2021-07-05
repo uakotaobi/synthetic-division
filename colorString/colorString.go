@@ -41,6 +41,25 @@ var hexDigitToColorTable = map[byte]termbox.Attribute {
 	'f': termbox.ColorWhite | termbox.AttrBold,
 }
 
+var colorToHexDigitTable = map[termbox.Attribute]byte {
+	termbox.ColorBlack: '0',
+	termbox.ColorBlue: '1',
+	termbox.ColorGreen: '2',
+	termbox.ColorCyan: '3',
+	termbox.ColorRed: '4',
+	termbox.ColorMagenta: '5',
+	termbox.ColorYellow: '6',
+	termbox.ColorWhite: '7',
+	termbox.ColorBlack | termbox.AttrBold: '8',
+	termbox.ColorBlue | termbox.AttrBold: '9',
+	termbox.ColorGreen | termbox.AttrBold: 'a',
+	termbox.ColorCyan | termbox.AttrBold: 'b',
+	termbox.ColorRed | termbox.AttrBold: 'c',
+	termbox.ColorMagenta | termbox.AttrBold: 'd',
+	termbox.ColorYellow | termbox.AttrBold: 'e',
+	termbox.ColorWhite | termbox.AttrBold: 'f',
+}
+
 type position struct {
 	x, y int
 }
@@ -68,19 +87,19 @@ func CursorPosition() (int, int) {
 // 1. For sanity's sake, all control codes except for the inline ones -- "\b",
 //    and "\t" -- are ignored.  They do not factor into the final substring
 //    length.
-// 2. The substring will start with the default foreground and background
-//    color code sequences unless the substring begins with a complete `n or ~n
-//    sequence.
+// 2. The substring will contain no color code sequences unless the original
+//    string has at least one complete `n or ~n sequence.
 // 3. If this function reads the start of a color code sequence, then it will
-//    proceed to read the entire sequence. and the first non-sequence
+//    proceed to read both the entire sequence and the first non-sequence
 //    character that follows it (if any.)
 // 4. Sequences do not count toward the final string's length.
 //
 // Example:
-//   colorString.Substr("`7~1Test", 1, 2)	    // Returns "es"          (initial code skipped)
+//   colorString.Substr("`7~1Test", 1, 2)	    // Returns "`7~1es"      (initial code repeated)
 //   colorString.Substr("`7~1Test", 0, 2)	    // Returns "`7~1Te"      (initial code captured)
 //   colorString.Substr("`7~1Test~4String", 0, 5)   // Returns "`7~1Test~4S" (second code captured)
 //   colorString.Substr("`7~1Test~4String", 0, 4)   // Returns "`7~1Test"    (second code unread)
+//   colorString.Substr("`7~1Test~4String", 9, 1)   // Returns "`7~4g"       (second code accounted for)
 //
 // Arguments:
 //   - s:      The color string to read.
@@ -105,14 +124,18 @@ func Substr(s string, start, length int) (result string) {
 	// to read _all_ of the color codes in their entirety, skipping ahead
 	// until we get to the actual start character.
 	characterCount := 0
+	currentForeground := termbox.ColorDefault // Maybe this should be termbox.ColorWhite?
+	currentBackground := termbox.ColorDefault
+
 	for i := 0; i < len(s);  {
 
 		var c byte
-		c, nextIndex, _, _ := readNextCharacter(s, i, termbox.ColorWhite, termbox.ColorBlack)
+		var nextIndex int
+		c, nextIndex, currentForeground, currentBackground = readNextCharacter(s, i, currentForeground, currentBackground)
 
 		if c == 0 && nextIndex >= len(s) {
 			// Read a color control code at the end of the
-			// string.  We won't add it.
+			// string.  We won't insert it.
 			break
 		}
 
@@ -124,6 +147,27 @@ func Substr(s string, start, length int) (result string) {
 			// Got all the characters we needed.
 			break
 		} else if characterCount > start {
+			if len(result) == 0 {
+				// Always preface the substring with the
+				// current foreground and background color at
+				// this point in the original string, even if
+				// the caller's starting index would have
+				// skipped over those color code sequences.
+				//
+				// We place the foreground first.
+				if currentBackground != termbox.ColorDefault {
+					result = "~" + string(colorToHexDigitTable[currentBackground]) + result
+				}
+				if currentForeground != termbox.ColorDefault {
+					result = "`" + string(colorToHexDigitTable[currentForeground]) + result
+				}
+
+				// Since we just added the correct colors, we
+				// can discard any color sequences in the
+				// current slice itself.
+				i = nextIndex - 1
+
+			}
 			result += s[i:nextIndex]
 		}
 

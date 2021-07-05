@@ -15,14 +15,38 @@ func TestSubstr(t *testing.T) {
 	// These examples come straight out of the Substr() documentation, so
 	// they had better work!
 	testData := []struct{source string; start, length int; expected string} {
-		{ "`7~1Test", 1, 2, "es" },
-		{ "`7~1Test", 1, 999, "est" },
+		// If the substring did not begin with color information,
+		// Substr() should add what the current color would have been
+		// at that point in the string.
+		{ "`7~1Test", 1, 2, "`7~1es" },
+		{ "`7~1Test", 1, 999, "`7~1est" },
+
+		// Normal slicing at the beginning.
 		{ "`7~1Test", 0, 2, "`7~1Te" },
 		{ "`7~1Test~4String", 0, 5, "`7~1Test~4S" },
 		{ "`7~1Test~4String", 0, 4, "`7~1Test" },
+
+		// The second background sequence, ~4, should override the
+		// first (~1) in the final substring.
+		{ "`7~1Test~4String", 9, 1, "`7~4g" },
+
+		// The substring requested would have been "`0!", but Substr()
+		// should inject the current background color automatically.
+		{ "`7~1T~4est`0!", 4, 1, "`0~4!" },
+
+		// Test pathologically short substrings.
 		{ "`7~1Test~4String", 0, 0, "" },
 		{ "`7~1\b", 0, 100, "`7~1\b" },
 		{ "`7~1", 0, 100, "" },
+
+		// If only a foreground color is supplied, Substr() should not
+		// add a background color, and vice versa.
+		{ "`1Repeat foreground color for split string", 24, 100, "`1for split string" },
+		{ "~dRepeat background color for split string", 24, 100, "~dfor split string" },
+
+		// Substr() should never add termbox.ColorDefault.  If a
+		// string lacks color, so should its substrings.
+		{ "No color information", 3, 100, "color information" },
 	}
 
 	for _, datum := range testData {
