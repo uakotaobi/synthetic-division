@@ -6,10 +6,10 @@ package main
 ///////////////////////////////////////////////////////////////////////////
 
 import (
-	"strconv"
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 )
 
 // Constants that determine how colored equations look.  These same colors are
@@ -71,7 +71,7 @@ func (poly *Polynomial) Add(p Polynomial) *Polynomial {
 					// Optimize away terms that summed to
 					// 0.
 					copy(terms[j:], terms[j+1:])
-					terms = terms[:len(terms) - 1]
+					terms = terms[:len(terms)-1]
 				}
 				merged = true
 				// fmt.Printf("%v\n", terms[j])
@@ -97,7 +97,6 @@ func (poly *Polynomial) Add(p Polynomial) *Polynomial {
 	// fmt.Printf("- Final sum is %v\n", poly.Terms)
 	return poly
 }
-
 
 // Multiplies this polynomial by the given one.
 func (poly *Polynomial) Multiply(p Polynomial) *Polynomial {
@@ -208,7 +207,7 @@ func (poly Polynomial) toString(defaultColor, coefficientColor, variableColor, e
 
 				_, err := strconv.ParseFloat(v, 64)
 
-				if len(v) > 1 || err == nil || (len(term.sortedVariables) > 1 && variableIndex < len(term.sortedVariables) - 1) {
+				if len(v) > 1 || err == nil || (len(term.sortedVariables) > 1 && variableIndex < len(term.sortedVariables)-1) {
 					// Needs parentheses.
 					termString += fmt.Sprintf("%s(%s%s%s%s)",
 						operatorColor,
@@ -286,7 +285,7 @@ func NewUnivariatePolynomial(coefficients []float64, v string) Polynomial {
 			continue
 		}
 		variables := map[string]int{}
-		if i < len(coefficients) - 1 {
+		if i < len(coefficients)-1 {
 			// If variable == "x" and i == 2, then the dictionary
 			// {"x": 2} represents the term "x^2".  Meanwhile, the
 			// dictionary {}, reserved for the final term,
