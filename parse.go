@@ -6,12 +6,12 @@ package main
 //////////////////////////////////////////////////////////////////////////////
 
 import (
-	"strconv"
+	"errors"
 	"fmt"
 	"math"
-	"unicode"
-	"errors"
 	"regexp"
+	"strconv"
+	"unicode"
 )
 
 // A token is an atomic piece of an expression.  An input string must be
@@ -34,28 +34,28 @@ import (
 // contain data fields for all token types, which is not ideal, but it was
 // easier than using interfaces and type switches.
 type token struct {
-	tokenType int
-	inputPosition int
-	text string
-	operatorValue operator
-	numericValue float64
-	functionValue function
+	tokenType       int
+	inputPosition   int
+	text            string
+	operatorValue   operator
+	numericValue    float64
+	functionValue   function
 	polynomialValue Polynomial
 }
 
 // These are the possible values of the token.tokenType field -- the types of
 // tokens we expect to encounter in expressions.
 const (
-	operatorToken int = iota // An operator, including parentheses.
-	symbolToken              // A symbol, like "x" or "foo."  These can be more than one character long.
-	functionToken            // A symbol that matches a known function.
-	numberToken              // A floating-point number.
-	polynomialToken          // A special token type that non-operator tokens are replaced with during evaluation (See NewPolynomial().)
+	operatorToken   int = iota // An operator, including parentheses.
+	symbolToken                // A symbol, like "x" or "foo."  These can be more than one character long.
+	functionToken              // A symbol that matches a known function.
+	numberToken                // A floating-point number.
+	polynomialToken            // A special token type that non-operator tokens are replaced with during evaluation (See NewPolynomial().)
 )
 
 // Prints a token.
 func (t token) String() string {
-	switch (t.tokenType) {
+	switch t.tokenType {
 	case operatorToken:
 		return fmt.Sprintf("%v", t.operatorValue.name)
 	case symbolToken:
@@ -74,6 +74,7 @@ func (t token) String() string {
 // All operators fall into one of two categories (with the exception of
 // left and right parentheses, which are a little special.)
 type operatorType int
+
 const (
 	unary operatorType = iota
 	binary
@@ -84,9 +85,9 @@ const (
 // right-associative [a^b^c -> a^(b^c)] -- again, with the exception of
 // parentheses.
 const (
-	leftAssociativity = -1
+	leftAssociativity  = -1
 	rightAssociativity = +1
-	noAssociativity = 0
+	noAssociativity    = 0
 )
 
 // Data for tokens of type operatorToken.
@@ -94,25 +95,25 @@ const (
 // Operators are tokens that operate on one or more operand tokens --
 // that is, numberTokens, symbolTokens, or polynomialTokens.
 type operator struct {
-	name string
-	type_ operatorType
-	precedence int
+	name          string
+	type_         operatorType
+	precedence    int
 	associativity int // Negative for left, positive for right, 0 for undetermined
 }
 
 // Note that all unary operators must be right-associative and have higher
 // precedence than the binary operators in order to fool Shunting Yard into
 // handling them.
-var operators = map[string]operator {
-	"(":   operator{"LEFT-PAREN",  other, 200, noAssociativity},
+var operators = map[string]operator{
+	"(":   operator{"LEFT-PAREN", other, 200, noAssociativity},
 	")":   operator{"RIGHT-PAREN", other, 200, noAssociativity},
-	"!!+": operator{"UNARY +",     unary, 100, rightAssociativity}, // Deduced automatically during scanning
-	"!!-": operator{"UNARY -",     unary, 100, rightAssociativity}, // Deduced automatically during scanning
-	"^":   operator{"EXPONENT",    binary, 90, rightAssociativity},
-	"*":   operator{"MULTIPLY",    binary, 80, leftAssociativity},
-	"/":   operator{"DIVIDE",      binary, 80, leftAssociativity},
-	"+":   operator{"ADD",         binary, 60, leftAssociativity},
-	"-":   operator{"SUBTRACT",    binary, 60, leftAssociativity},
+	"!!+": operator{"UNARY +", unary, 100, rightAssociativity}, // Deduced automatically during scanning
+	"!!-": operator{"UNARY -", unary, 100, rightAssociativity}, // Deduced automatically during scanning
+	"^":   operator{"EXPONENT", binary, 90, rightAssociativity},
+	"*":   operator{"MULTIPLY", binary, 80, leftAssociativity},
+	"/":   operator{"DIVIDE", binary, 80, leftAssociativity},
+	"+":   operator{"ADD", binary, 60, leftAssociativity},
+	"-":   operator{"SUBTRACT", binary, 60, leftAssociativity},
 }
 
 // Data for tokens of type functionToken.
@@ -121,12 +122,12 @@ var operators = map[string]operator {
 // learn how to modify the Shunting Yard Algorithm to handle more function
 // arguments.)
 type function struct {
-	argumentCount int              // I had planned to use this to support functions with more than one argument, but that never worked out.
-	function func(float64) float64 // The function's evaluation routine.
+	argumentCount int                   // I had planned to use this to support functions with more than one argument, but that never worked out.
+	function      func(float64) float64 // The function's evaluation routine.
 }
 
 // The known functions that we can evaluate.
-var functions = map[string]function {
+var functions = map[string]function{
 	"abs": function{1, math.Abs},
 }
 
@@ -173,7 +174,7 @@ func (p *parser) scan(inputString string) error {
 					p.tokens = append(p.tokens, t)
 				} else {
 					// Unrecognized garbage.
-					return errors.New(fmt.Sprintf("Unrecognized token '%c' at position %v of input string", inputString[i], i + 1))
+					return errors.New(fmt.Sprintf("Unrecognized token '%c' at position %v of input string", inputString[i], i+1))
 				}
 			}
 		}
@@ -197,7 +198,7 @@ func scanWhiteSpace(inputString string, index int) int {
 // error and the original index.
 func scanOperator(inputString string, index int) (newIndex int, text string, err error) {
 	for key, _ := range operators {
-		if len(inputString) - index >= len(key) && key == inputString[index:index + len(key)] {
+		if len(inputString)-index >= len(key) && key == inputString[index:index+len(key)] {
 			return index + len(key), key, nil
 		}
 	}
@@ -289,7 +290,7 @@ func (p *parser) parse() error {
 
 	for index, t := range p.tokens {
 
-		switch (t.tokenType) {
+		switch t.tokenType {
 		case numberToken:
 			// Always push numbers to the output queue.
 			outputQueue = append([]token{t}, outputQueue...)
@@ -299,10 +300,10 @@ func (p *parser) parse() error {
 			// parenthesis ("10(7)"), we assume implicit
 			// multiplication and enqueue the multiplication
 			// operator automatically.
-			if index < len(p.tokens) - 1 &&
-				(p.tokens[index + 1].tokenType == symbolToken ||
-				p.tokens[index + 1].tokenType == functionToken ||
-				(p.tokens[index + 1].tokenType == operatorToken && p.tokens[index + 1].operatorValue.name == "LEFT-PAREN")) {
+			if index < len(p.tokens)-1 &&
+				(p.tokens[index+1].tokenType == symbolToken ||
+					p.tokens[index+1].tokenType == functionToken ||
+					(p.tokens[index+1].tokenType == operatorToken && p.tokens[index+1].operatorValue.name == "LEFT-PAREN")) {
 				var op token
 				op.tokenType = operatorToken
 				op.text = "*"
@@ -323,8 +324,8 @@ func (p *parser) parse() error {
 			// left parenthesis ("x(x + 5)"), we assume implicit
 			// multiplication and enqueue the multiplication
 			// operator automatically.
-			if index < len(p.tokens) - 1 &&
-				(p.tokens[index + 1].tokenType == operatorToken && p.tokens[index + 1].operatorValue.name == "LEFT-PAREN") {
+			if index < len(p.tokens)-1 &&
+				(p.tokens[index+1].tokenType == operatorToken && p.tokens[index+1].operatorValue.name == "LEFT-PAREN") {
 				var op token
 				op.tokenType = operatorToken
 				op.text = "*"
@@ -340,7 +341,7 @@ func (p *parser) parse() error {
 			// _Functions_ are pushed to the operator stack.
 			operatorStack = append(operatorStack, t)
 		case operatorToken:
-			switch (t.operatorValue.name) {
+			switch t.operatorValue.name {
 			case "LEFT-PAREN":
 				// Push left parentheses onto the operator stack.
 				operatorStack = append(operatorStack, t)
@@ -352,26 +353,26 @@ func (p *parser) parse() error {
 					if len(operatorStack) == 0 {
 						// No left parenthesis on the
 						// stack at all.
-						return errors.New(fmt.Sprintf("Unmatched right parenthesis at position %v of input string", t.inputPosition + 1))
-					} else if operatorStack[len(operatorStack) - 1].operatorValue.name == "LEFT-PAREN" {
+						return errors.New(fmt.Sprintf("Unmatched right parenthesis at position %v of input string", t.inputPosition+1))
+					} else if operatorStack[len(operatorStack)-1].operatorValue.name == "LEFT-PAREN" {
 						break
 					} else {
 						var operatorToken token
-						operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+						operatorToken, operatorStack = operatorStack[len(operatorStack)-1], operatorStack[:len(operatorStack)-1]
 						outputQueue = append([]token{operatorToken}, outputQueue...)
 					}
 				}
 
 				// Discard the left parenthesis that is now at
 				// the top of the stack.
-				operatorStack = operatorStack[:len(operatorStack) - 1]
+				operatorStack = operatorStack[:len(operatorStack)-1]
 
 				// If we now see a function token at the top
 				// of the operator stack, pop it and push it
 				// onto the output queue.
-				if len(operatorStack) > 0 && operatorStack[len(operatorStack) - 1].tokenType == functionToken {
+				if len(operatorStack) > 0 && operatorStack[len(operatorStack)-1].tokenType == functionToken {
 					var functionToken token
-					functionToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+					functionToken, operatorStack = operatorStack[len(operatorStack)-1], operatorStack[:len(operatorStack)-1]
 					outputQueue = append([]token{functionToken}, outputQueue...)
 				}
 
@@ -383,7 +384,7 @@ func (p *parser) parse() error {
 
 				// Handle unary + and unary -.
 				if state == defaultState {
-					switch (t.operatorValue.name) {
+					switch t.operatorValue.name {
 					case "SUBTRACT":
 						t.operatorValue = operators["!!-"]
 					case "ADD":
@@ -391,11 +392,11 @@ func (p *parser) parse() error {
 					}
 				}
 
-				if (len(operatorStack) > 0 &&
-					operatorStack[len(operatorStack) - 1].tokenType == operatorToken) {
+				if len(operatorStack) > 0 &&
+					operatorStack[len(operatorStack)-1].tokenType == operatorToken {
 					// There is an operator at the top of the
 					// operator stack.
-					topOperator := operatorStack[len(operatorStack) - 1]
+					topOperator := operatorStack[len(operatorStack)-1]
 
 					// Pop operators from the stack as long as:
 					//
@@ -414,13 +415,13 @@ func (p *parser) parse() error {
 						topOperator.operatorValue.name != "LEFT-PAREN" {
 
 						var operatorToken token
-						operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+						operatorToken, operatorStack = operatorStack[len(operatorStack)-1], operatorStack[:len(operatorStack)-1]
 
 						outputQueue = append([]token{operatorToken}, outputQueue...)
 						if len(operatorStack) == 0 {
 							break
 						}
-						topOperator = operatorStack[len(operatorStack) - 1]
+						topOperator = operatorStack[len(operatorStack)-1]
 					}
 				}
 
@@ -437,18 +438,18 @@ func (p *parser) parse() error {
 	// Pop any remaining operators to the output queue.
 	for len(operatorStack) > 0 {
 		var operatorToken token
-		operatorToken, operatorStack = operatorStack[len(operatorStack) - 1], operatorStack[:len(operatorStack) - 1]
+		operatorToken, operatorStack = operatorStack[len(operatorStack)-1], operatorStack[:len(operatorStack)-1]
 		if operatorToken.operatorValue.name == "LEFT-PAREN" {
-			return errors.New(fmt.Sprintf("Unmatched left parenthesis at position %v of input string", operatorToken.inputPosition + 1))
+			return errors.New(fmt.Sprintf("Unmatched left parenthesis at position %v of input string", operatorToken.inputPosition+1))
 		} else if operatorToken.operatorValue.name == "RIGHT-PAREN" {
-			return errors.New(fmt.Sprintf("Unmatched right parenthesis at position %v of input string", operatorToken.inputPosition + 1))
+			return errors.New(fmt.Sprintf("Unmatched right parenthesis at position %v of input string", operatorToken.inputPosition+1))
 		} else {
 			outputQueue = append([]token{operatorToken}, outputQueue...)
 		}
 	}
 
 	// Reverse the output queue and we're done.
-	for left, right := 0, len(outputQueue) - 1; left < right; left, right = left + 1, right - 1 {
+	for left, right := 0, len(outputQueue)-1; left < right; left, right = left+1, right-1 {
 		outputQueue[left], outputQueue[right] = outputQueue[right], outputQueue[left]
 	}
 	p.tokens = outputQueue
@@ -528,7 +529,8 @@ func NewPolynomial(s string) (Polynomial, error) {
 			case operand.tokenType == numberToken:
 				// Numeric constants are always valid.
 				continue
-			case operand.tokenType == symbolToken: fallthrough;
+			case operand.tokenType == symbolToken:
+				fallthrough
 			case operand.tokenType == polynomialToken:
 				// The only things we can't do yet with symbols and
 				// polynomials with a degree greater than 0
@@ -612,7 +614,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 			// (symbol)^1.
 			result.polynomialValue = NewUnivariatePolynomial([]float64{1, 0}, t.text)
 		case polynomialToken:
-			result.polynomialValue = t.polynomialValue;
+			result.polynomialValue = t.polynomialValue
 		default:
 			message := fmt.Sprintf("Internal error: cannot convert token '%v' (type %v) to a polynomial", t.text, t.tokenType)
 			return result, errors.New(message)
@@ -670,7 +672,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 				// here.  We should validate _that_, too.
 				denominator := operands[1].polynomialValue.Terms[0].Coefficient
 				result.polynomialValue = operands[0].polynomialValue
-				result.polynomialValue.MultiplyByConstant(1.0/denominator)
+				result.polynomialValue.MultiplyByConstant(1.0 / denominator)
 			case "EXPONENT":
 				// Raising a polynomial by another polynomial
 				// that happens to be a constant.  (We
@@ -684,7 +686,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 					result.polynomialValue = NewUnivariatePolynomial([]float64{1.0}, "x")
 				} else {
 					result.polynomialValue = operands[0].polynomialValue
-					for i := 0; i < int(exponent - 1); i++ {
+					for i := 0; i < int(exponent-1); i++ {
 						result.polynomialValue.Multiply(operands[0].polynomialValue)
 					}
 				}
@@ -744,8 +746,8 @@ func NewPolynomial(s string) (Polynomial, error) {
 			}
 
 			var operand1, operand2 token
-			operand2, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
-			operand1, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+			operand2, operandStack = operandStack[len(operandStack)-1], operandStack[:len(operandStack)-1]
+			operand1, operandStack = operandStack[len(operandStack)-1], operandStack[:len(operandStack)-1]
 
 			// Ensure that we can use them as polynomials.
 			err = validateOperands(topToken, []token{operand1, operand2})
@@ -770,7 +772,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 			}
 
 			var operand token
-			operand, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+			operand, operandStack = operandStack[len(operandStack)-1], operandStack[:len(operandStack)-1]
 
 			// Ensure that we can use it as a polynomial.
 			err = validateOperands(topToken, []token{operand})
@@ -796,7 +798,7 @@ func NewPolynomial(s string) (Polynomial, error) {
 			// number or if it is a polynomial of degree 0 -- in
 			// other words, if it can evaluate to a constant.
 			var operand token
-			operand, operandStack = operandStack[len(operandStack) - 1], operandStack[:len(operandStack) - 1]
+			operand, operandStack = operandStack[len(operandStack)-1], operandStack[:len(operandStack)-1]
 
 			err = validateOperands(topToken, []token{operand})
 			if err != nil {

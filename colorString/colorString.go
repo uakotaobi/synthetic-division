@@ -2,6 +2,7 @@ package colorString
 
 import (
 	"fmt"
+
 	"github.com/nsf/termbox-go"
 )
 
@@ -75,14 +76,14 @@ func CursorPosition() (int, int) {
 	return cursorPosition.x, cursorPosition.y
 }
 
-// Returns the substring of the given color string (i.e., a string that
-// contains 0 or more "`n" or "~n" color code sequences) having the given
-// starting position and final printed length.  Forms use this function to
-// ensure that color strings representing polynomials do not exceed the length
-// of a given form field.
+// Returns the substring of the given color string having the given starting
+// position and final printed length.  Forms use this function to ensure that
+// color strings representing polynomials do not exceed the length of a given
+// form field.
 //
-// The main feature that distinguishes this function from ordinary string
-// slicing is its awareness of color code sequences.
+// A 'color string' in this context is simply a string that contains 0 or more
+// "`n" or "~n" color code sequences; the main feature that distinguishes this
+// function from ordinary string slicing is its awareness of these sequences.
 //
 // Caveats:
 // 1. For sanity's sake, all C-style escape sequences are ignored.  They do
@@ -94,7 +95,7 @@ func CursorPosition() (int, int) {
 //    character that follows it (if any.)
 // 4. Sequences do not count toward the final string's length.
 //
-// Example:
+// Examples:
 //   colorString.Substr("`7~1Test", 1, 2)	    // Returns "`7~1es"      (initial code repeated)
 //   colorString.Substr("`7~1Test", 0, 2)	    // Returns "`7~1Te"      (initial code captured)
 //   colorString.Substr("`7~1Test~4String", 0, 5)   // Returns "`7~1Test~4S" (second code captured)
@@ -111,7 +112,6 @@ func CursorPosition() (int, int) {
 // Returns:
 //   Returns the desired substring, or an empty string if the starting index
 //   was invalid.  The substring's length will never exceed len(s).
-
 func Substr(s string, start, length int) (result string) {
 	// Sanity checking.
 	if start < 0 || start >= len(s) || length <= 0 {

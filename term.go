@@ -20,10 +20,10 @@ import (
 //
 // When the dictionary is empty, the Term represents a constant.
 type Term struct {
-	Coefficient float64
-	Variables map[string]int
-	sortedVariables []string  // Cached after being calculated by SortKey().
-	sortKey string            // Also cached after being calculated by SortKey().
+	Coefficient     float64
+	Variables       map[string]int
+	sortedVariables []string // Cached after being calculated by SortKey().
+	sortKey         string   // Also cached after being calculated by SortKey().
 }
 
 // Go doesn't have constructors, so this is the closest we get to that.
@@ -119,7 +119,7 @@ func (term *Term) SortKey() string {
 			}
 			sort.Strings(term.sortedVariables)
 			sort.Strings(sortKeyEntries)
-			term.sortKey = fmt.Sprintf("%020d:%s", maxExponent * term.Degree(), strings.Join(sortKeyEntries, ""))
+			term.sortKey = fmt.Sprintf("%020d:%s", maxExponent*term.Degree(), strings.Join(sortKeyEntries, ""))
 		}
 	}
 	return term.sortKey
